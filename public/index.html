@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1c1c1e">
+  <title>NovaChat</title>
+  <script>
+    (function () {
+      var pref = localStorage.getItem('novachat_theme') || 'system';
+      var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = pref === 'system' ? (dark ? 'dark' : 'light') : pref;
+      document.documentElement.lang = localStorage.getItem('novachat_lang') === 'en' ? 'en' : 'ru';
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="page-auth">
+  <div class="bg" aria-hidden="true">
+    <span class="blob b1"></span>
+    <span class="blob b2"></span>
+    <span class="blob b3"></span>
+  </div>
+
+  <div class="top-actions">
+    <button id="langBtn" class="pill-btn" type="button" aria-label="Language">
+      <span id="langLabel">RU</span>
+    </button>
+    <button id="themeBtn" class="icon-btn" type="button" aria-label="Theme"></button>
+  </div>
+
+  <main class="auth">
+    <div class="logo" aria-hidden="true">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5z" />
+      </svg>
+    </div>
+    <h1>NovaChat</h1>
+    <p id="subtitle" class="subtitle" data-i18n="loginSubtitle"></p>
+
+    <div id="authSeg" class="segmented">
+      <span class="seg-thumb"></span>
+      <button type="button" class="seg active" data-value="login" data-i18n="login"></button>
+      <button type="button" class="seg" data-value="register" data-i18n="register"></button>
+    </div>
+
+    <form id="form" class="auth-form" novalidate>
+      <input id="username" class="field" type="text" autocomplete="username" autocapitalize="off" autocorrect="off"
+        spellcheck="false" data-i18n-placeholder="usernamePlaceholder">
+      <p id="hint" class="hint" aria-live="polite"></p>
+      <div id="nameReveal" class="reveal">
+        <div class="reveal-inner">
+          <input id="displayName" class="field" type="text" maxlength="64" autocomplete="name"
+            data-i18n-placeholder="namePlaceholder">
+        </div>
+      </div>
+      <input id="password" class="field" type="password" autocomplete="current-password"
+        data-i18n-placeholder="passwordPlaceholder">
+      <p id="error" class="error" role="alert"></p>
+      <button id="submit" class="btn btn-primary" type="submit" data-i18n="loginBtn"></button>
+    </form>
+  </main>
+
+  <script src="common.js"></script>
+  <script src="login.js"></script>
+  <script src="pwa.js"></script>
+</body>
+
+</html>

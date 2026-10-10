@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1c1c1e">
+  <title>NovaChat</title>
+  <script>
+    (function () {
+      var pref = localStorage.getItem('novachat_theme') || 'system';
+      var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = pref === 'system' ? (dark ? 'dark' : 'light') : pref;
+      document.documentElement.lang = localStorage.getItem('novachat_lang') === 'en' ? 'en' : 'ru';
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="page-app">
+  <div id="app" class="app">
+    <section id="listView" class="list-view">
+      <header class="bar">
+        <button id="settingsBtn" class="icon-btn" type="button" data-icon="sliders" data-icon-size="22"
+          aria-label="Settings"></button>
+        <h1 class="bar-title" data-i18n="chats">Чаты</h1>
+        <button id="newChatBtn" class="icon-btn" type="button" data-icon="compose" data-icon-size="22"
+          aria-label="New chat"></button>
+      </header>
+
+      <div class="search-wrap">
+        <span class="search-icon" data-icon="search" data-icon-size="16"></span>
+        <input id="listSearch" class="search" type="search" autocomplete="off" data-i18n-placeholder="search"
+          placeholder="Поиск">
+      </div>
+
+      <ul id="chatList" class="chat-list"></ul>
+
+      <div id="listEmpty" class="empty" hidden>
+        <div class="empty-icon" data-icon="logo" data-icon-size="28"></div>
+        <p class="empty-title" data-i18n="noChats">Пока нет чатов</p>
+        <p class="empty-sub" data-i18n="noChatsHint">Найдите собеседника по юзернейму</p>
+      </div>
+
+      <button id="listStatus" class="list-status" type="button" hidden></button>
+    </section>
+
+    <section id="chatView" class="chat-view">
+      <header class="bar chat-bar">
+        <button id="backBtn" class="icon-btn" type="button" data-icon="chevron" data-icon-size="24"
+          aria-label="Back"></button>
+        <button id="peerBtn" class="peer-btn" type="button"></button>
+        <button id="chatSearchBtn" class="icon-btn" type="button" data-icon="search" data-icon-size="20"
+          aria-label="Search"></button>
+      </header>
+
+      <div id="messages" class="messages"></div>
+
+      <button id="toBottom" class="to-bottom" type="button" data-icon="chevron" data-icon-size="20" aria-label="Down"
+        hidden></button>
+
+      <form id="composer" class="composer">
+        <button id="attachBtn" class="attach-btn" type="button" data-icon="paperclip" data-icon-size="20"
+          aria-label="Attach"></button>
+        <textarea id="messageInput" class="composer-input" rows="1" data-i18n-placeholder="typeMessage"
+          placeholder="Сообщение"></textarea>
+        <button id="sendBtn" class="send-btn" type="submit" data-icon="send" data-icon-size="18"
+          aria-label="Send"></button>
+      </form>
+      <input id="fileInput" type="file" hidden>
+
+      <p id="readonlyNote" class="readonly-note" data-i18n="readonlyChat" hidden></p>
+    </section>
+
+    <div id="desktopEmpty" class="empty desktop-empty">
+      <div class="empty-icon" data-icon="logo" data-icon-size="28"></div>
+      <p class="empty-title" data-i18n="selectChat">Выберите чат</p>
+    </div>
+  </div>
+
+  <div id="ctxMenu" class="ctx-menu" role="menu">
+    <div id="ctxReactions" class="ctx-reactions"></div>
+    <button id="ctxCopy" class="ctx-item" type="button"><span data-icon="copy" data-icon-size="18"></span><span
+        data-x="copy">Копировать</span></button>
+    <button id="ctxForward" class="ctx-item" type="button"><span data-icon="forward" data-icon-size="18"></span><span
+        data-x="forward">Переслать</span></button>
+    <div class="ctx-sep"></div>
+    <button id="ctxDeleteMe" class="ctx-item danger" type="button"><span data-icon="trash"
+        data-icon-size="18"></span><span data-x="deleteMe">Удалить у меня</span></button>
+    <button id="ctxDeleteAll" class="ctx-item danger" type="button"><span data-icon="trash"
+        data-icon-size="18"></span><span data-x="deleteAll">Удалить у всех</span></button>
+  </div>
+
+  <div id="backdrop" class="backdrop"></div>
+
+  <section id="settingsSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <span></span>
+      <h2 class="sheet-title" data-i18n="settings">Настройки</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <div id="profileCard" class="profile-card"></div>
+
+      <p class="section-label" data-i18n="appearance">Внешний вид</p>
+      <div id="themeSeg" class="segmented" style="--count: 3;">
+        <span class="seg-thumb"></span>
+        <button type="button" class="seg" data-value="system" data-i18n="themeSystem">Системная</button>
+        <button type="button" class="seg" data-value="light" data-i18n="themeLight">Светлая</button>
+        <button type="button" class="seg" data-value="dark" data-i18n="themeDark">Тёмная</button>
+      </div>
+
+      <p class="section-label" data-i18n="language">Язык</p>
+      <div id="langSeg" class="segmented">
+        <span class="seg-thumb"></span>
+        <button type="button" class="seg" data-value="ru">Русский</button>
+        <button type="button" class="seg" data-value="en">English</button>
+      </div>
+
+      <button id="logoutBtn" class="btn btn-danger" type="button" data-i18n="logout">Выйти</button>
+      <p class="version" data-i18n="version">NovaChat · версия 0.1</p>
+    </div>
+  </section>
+
+  <section id="profileSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <button id="profileBack" class="icon-btn invisible" type="button" data-icon="chevron" data-icon-size="24"
+        aria-label="Back"></button>
+      <h2 class="sheet-title" data-i18n="profile">Профиль</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <div class="profile-head">
+        <div class="avatar-wrap">
+          <div id="profileAvatar"></div>
+          <button id="avatarEdit" class="avatar-edit" type="button" data-icon="camera" data-icon-size="15"
+            aria-label="Photo"></button>
+        </div>
+        <h3 id="profileName" class="profile-name"></h3>
+        <p id="profileUsername" class="profile-sub"></p>
+        <p id="profileBadge" class="profile-badge"></p>
+      </div>
+
+      <p id="profileBio" class="profile-bio"></p>
+
+      <form id="profileForm" class="profile-form" hidden>
+        <label class="label" for="editName" data-i18n="displayName">Имя</label>
+        <input id="editName" class="field" type="text" maxlength="64">
+        <label class="label" for="editBio" data-i18n="bio">О себе</label>
+        <textarea id="editBio" class="field textarea" rows="3" maxlength="200"></textarea>
+        <button class="btn btn-primary" type="submit" data-i18n="save">Сохранить</button>
+      </form>
+    </div>
+    <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+  </section>
+
+  <section id="newChatSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <span></span>
+      <h2 class="sheet-title" data-i18n="newChat">Новый чат</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <button id="createGroupBtn" class="btn btn-soft" type="button" data-x="newGroup">Создать группу</button>
+      <input id="userSearch" class="field" type="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+        data-i18n-placeholder="usernamePlaceholder" placeholder="Юзернейм">
+      <ul id="userResults" class="user-list"></ul>
+      <p id="userHint" class="hint-center" data-i18n="newChatHint">Введите юзернейм, чтобы найти собеседника</p>
+    </div>
+  </section>
+
+  <section id="forwardSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <span></span>
+      <h2 class="sheet-title" data-x="forwardTitle">Переслать в…</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <ul id="forwardList" class="user-list"></ul>
+      <p id="forwardHint" class="hint-center" hidden></p>
+    </div>
+  </section>
+
+  <section id="groupSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <span></span>
+      <h2 class="sheet-title" data-x="newGroup">Новая группа</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <label class="label" for="groupTitle" data-x="groupTitle">Название</label>
+      <input id="groupTitle" class="field" type="text" maxlength="64">
+      <label class="label" for="groupUsername" data-x="groupUsername">Юзернейм группы</label>
+      <input id="groupUsername" class="field" type="text" maxlength="32" autocomplete="off" autocapitalize="off"
+        spellcheck="false">
+      <p id="groupUsernameHint" class="hint"></p>
+      <label class="label" for="groupDesc" data-x="groupDesc">Описание</label>
+      <textarea id="groupDesc" class="field textarea" rows="2" maxlength="300"></textarea>
+      <button id="groupCreate" class="btn btn-primary" type="button" data-x="create">Создать</button>
+    </div>
+  </section>
+
+  <section id="groupInfoSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <span></span>
+      <h2 class="sheet-title" data-x="groupInfo">Группа</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <div class="profile-head">
+        <div id="groupInfoAvatar"></div>
+        <h3 id="groupInfoTitle" class="profile-name"></h3>
+        <p id="groupInfoSub" class="profile-sub"></p>
+      </div>
+      <p id="groupInfoDesc" class="profile-bio" hidden></p>
+      <button id="groupJoinBtn" class="btn btn-primary" type="button" data-x="join" hidden>Вступить</button>
+      <div id="groupAddWrap" class="group-add" hidden>
+        <p class="label" data-x="addMember">Добавить участника</p>
+        <div class="row-inline">
+          <input id="groupAddInput" class="field" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+            placeholder="Юзернейм">
+          <button id="groupAddBtn" class="btn btn-primary" type="button" data-x="add">Добавить</button>
+        </div>
+      </div>
+      <p class="section-label" data-x="members">Участники</p>
+      <ul id="groupMembers" class="user-list"></ul>
+      <button id="groupLeaveBtn" class="btn btn-danger" type="button" data-x="leave" hidden>Покинуть группу</button>
+      <button id="groupDeleteBtn" class="btn btn-danger" type="button" data-x="deleteGroup" hidden>Удалить
+        группу</button>
+    </div>
+  </section>
+
+  <section id="searchSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <span></span>
+      <h2 class="sheet-title" data-x="searchInChat">Поиск в чате</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <input id="chatSearchInput" class="field" type="search" autocomplete="off" data-i18n-placeholder="search"
+        placeholder="Поиск">
+      <ul id="chatSearchResults" class="user-list"></ul>
+      <p id="chatSearchHint" class="hint-center" data-x="searchHint">Введите хотя бы две буквы</p>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="common.js"></script>
+  <script src="app.js"></script>
+  <script src="pwa.js"></script>
+</body>
+
+</html>
