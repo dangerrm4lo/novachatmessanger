@@ -436,6 +436,7 @@
     openSheet: null,
     profileUser: null,
     profileEditable: false,
+    profileEditing: false,
     profileOrigin: null,
     profileTab: 'gifts',
     groupCardId: null,
@@ -1598,39 +1599,158 @@
 
   // ----- Профиль -----
 
-  function renderProfile(user, editable) {
+  function txt(ru, en) {
+    return NC.getLang() === 'en' ? en : ru;
+  }
+
+  function plYears(n) {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return 'год';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'года';
+    return 'лет';
+  }
+
+  function ageOf(iso) {
+    const b = new Date(iso + 'T00:00:00');
+    const now = new Date();
+    let age = now.getFullYear() - b.getFullYear();
+    const m = now.getMonth() - b.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+    return age;
+  }
+
+  function birthText(iso) {
+    const d = new Date(iso + 'T00:00:00');
+    const locale = NC.getLang() === 'en' ? 'en-US' : 'ru-RU';
+    const dateStr = d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+    const age = ageOf(iso);
+    return dateStr + ' (' + age + ' ' + (NC.getLang() === 'en' ? 'y.o.' : plYears(age)) + ')';
+  }
+
+  function renderMusic(p) {
+    const bar = $('musicBar');
+    const audio = $('musicAudio');
+    const url = p && p.musicUrl;
+    bar.hidden = !url;
+    $('musicTitle').textContent = (p && p.musicTitle) || '';
+    if (!url) {
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.dataset.src = '';
+    } else if (audio.dataset.src !== url) {
+      audio.pause();
+      audio.src = url;
+      audio.dataset.src = url;
+    }
+    syncMusicButton();
+  }
+
+  function syncMusicButton() {
+    const audio = $('musicAudio');
+    const btn = $('musicPlay');
+    const playing = !audio.paused;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+      (playing
+        ? '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>'
+        : '<polygon points="7 4 20 12 7 20 7 4"/>') + '</svg>';
+    btn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  }
+
+  function renderFeatured(p) {
+    const wrap = $('featuredWrap');
+    const g = p && p.featuredGroup;
+    wrap.hidden = !g;
+    if (!g) return;
+    $('featuredLabel').textContent = txt('Канал', 'Channel');
+    const card = $('featuredCard');
+    card.dataset.groupId = g.id;
+    card.innerHTML = NC.avatarHtml({ displayName: g.title, username: g.username, avatarUrl: g.avatarUrl }, 'avatar-md') +
+      '<span class="featured-meta"><span class="featured-name">' + NC.esc(g.title) + '</span>' +
+      '<span class="featured-sub">' + NC.esc(membersText(g.memberCount)) + '</span></span>' +
+      '<span class="chev">' + NC.icon('chevron', 16) + '</span>';
+  }
+
+  function fillFeaturedSelect(currentId) {
+    const groups = state.chats.filter((c) => c.kind === 'group' && (c.myRole === 'owner' || c.myRole === 'admin'));
+    $('editFeatured').innerHTML = '<option value="">' + txt('Не выбран', 'None') + '</option>' +
+      groups.map((c) => '<option value="' + c.id + '"' + (c.id === currentId ? ' selected' : '') + '>' +
+        NC.esc(c.peer.displayName) + '</option>').join('');
+  }
+
+  function renderProfile(user, editable, editing) {
     state.profileUser = user;
     state.profileEditable = editable;
+    const isSystem = Boolean(user.isSystem);
+    const showEdit = Boolean(editable && editing);
+    state.profileEditing = showEdit;
+    const me = state.me || {};
+
+    const banner = $('profileBanner');
+    banner.innerHTML = user.bannerUrl ? '<img src="' + NC.esc(user.bannerUrl) + '" alt="">' : '';
+    banner.classList.toggle('has-image', Boolean(user.bannerUrl));
+
     els.profileAvatar.innerHTML = NC.avatarHtml(user, 'avatar-xl');
     els.avatarEdit.hidden = !editable;
     els.profileName.innerHTML = NC.esc(user.displayName) + (user.isVerified ? NC.verifiedHtml() : '');
     els.profileUsername.textContent = '@' + user.username;
-
-    const badge = user.isSystem ? NC.t('systemAccount') : (user.isVerified ? NC.t('verified') : '');
+    const badge = isSystem ? NC.t('systemAccount') : (user.isVerified ? NC.t('verified') : '');
     els.profileBadge.textContent = badge;
     els.profileBadge.hidden = !badge;
 
-    // «Написать» не нужна в своём профиле, у NovaChat и в открытом из самого чата
-    els.profileActions.hidden = editable || Boolean(user.isSystem) || state.profileOrigin === 'chat';
+    const writeHidden = editable || isSystem || state.profileOrigin === 'chat';
+    els.profileWrite.hidden = writeHidden;
+    $('selfActions').hidden = !editable;
+    els.profileActions.hidden = editable ? false : writeHidden;
+    $('selfPhoto').textContent = txt('Выбрать фото', 'Choose photo');
+    $('selfEdit').textContent = txt('Изменить', 'Edit');
+    $('selfSettings').textContent = txt('Настройки', 'Settings');
 
-    els.profileForm.hidden = !editable;
-    els.profileBio.hidden = editable;
+    renderMusic(user);
+    renderFeatured(user);
+
+    $('infoUsername').textContent = '@' + user.username;
+    $('infoUsernameLabel').textContent = txt('Имя пользователя', 'Username');
+    $('profileBirthLabel').textContent = txt('Дата рождения', 'Birthday');
+    $('birthRow').hidden = !user.birthDate;
+    if (user.birthDate) {
+      $('profileBirth').textContent = birthText(user.birthDate) +
+        (editable && user.showBirthDate === false ? txt(' · скрыта', ' · hidden') : '');
+    }
+
+    els.profileForm.hidden = !showEdit;
+    els.profileBio.hidden = showEdit;
     const reportWrap = $('reportWrap');
-    if (reportWrap) reportWrap.hidden = editable || Boolean(user.isSystem);
+    if (reportWrap) reportWrap.hidden = editable || isSystem;
 
-    if (editable) {
+    if (showEdit) {
       els.editName.value = user.displayName;
       els.editBio.value = user.bio || '';
-    } else if (user.bio === undefined) {
-      els.profileBio.textContent = '…';
-    } else if (user.bio) {
-      els.profileBio.innerHTML = richText(user.bio);
+      $('editBirthLabel').textContent = txt('Дата рождения', 'Birthday');
+      $('editBirth').value = user.birthDate || '';
+      $('editFeaturedLabel').textContent = txt('Канал в профиле (ваша группа)', 'Channel on profile (your group)');
+      fillFeaturedSelect(user.featuredChatId || null);
+      const plus = Boolean(me.novaPlus);
+      $('bannerEditWrap').hidden = false;
+      $('bannerUploadBtn').textContent = txt('Загрузить баннер 3:1', 'Upload banner 3:1');
+      $('bannerUploadBtn').disabled = !plus;
+      $('bannerRemoveBtn').textContent = txt('Удалить баннер', 'Remove banner');
+      $('bannerRemoveBtn').hidden = !user.bannerUrl;
+      $('bannerNeedPlus').hidden = plus;
+      $('bannerNeedPlus').textContent = txt('Баннер доступен с Nova+', 'Banner is available with Nova+');
+      $('musicEdit').hidden = false;
+      $('musicUploadBtn').textContent = txt('Загрузить музыку (mp3, wav)', 'Upload music (mp3, wav)');
+      $('musicRemoveBtn').textContent = txt('Удалить музыку', 'Remove music');
+      $('musicRemoveBtn').hidden = !user.musicUrl;
     } else {
-      els.profileBio.textContent = NC.t('noBio');
+      $('bannerEditWrap').hidden = true;
+      $('musicEdit').hidden = true;
+      if (user.bio === undefined) els.profileBio.textContent = '…';
+      else if (user.bio) els.profileBio.innerHTML = richText(user.bio);
+      else els.profileBio.textContent = NC.t('noBio');
     }
   }
 
-  // Вкладки профиля: «Подарки» и «Публикации», у своего профиля справа кнопка действия
   function setProfileTab(tab) {
     state.profileTab = tab;
     els.tabGifts.classList.toggle('active', tab === 'gifts');
@@ -1689,7 +1809,7 @@
   async function openProfile(user, editable, origin) {
     state.profileOrigin = origin || null;
     els.profileBack.classList.toggle('invisible', !BACK_TARGETS[state.profileOrigin]);
-    renderProfile(user, editable);
+    renderProfile(user, editable, false);
     setProfileTab('gifts');
     renderCollections([]);
     openSheet('profile');
@@ -1700,13 +1820,13 @@
       const { user: full } = await NC.api('GET', '/api/users/' + encodeURIComponent(user.username));
       const stillOpen = state.openSheet === 'profile' &&
         state.profileUser && state.profileUser.username === full.username && !state.profileEditable;
-      if (stillOpen) renderProfile(full, false);
+      if (stillOpen) renderProfile(full, false, false);
     } catch (err) {
       if (state.openSheet === 'profile') toast(errorText(err));
     }
   }
 
-  // Ссылка @name: сначала ищем пользователя, если его нет, ищем группу с этим юзернеймом
+  // Ссылка @name: сначала ищем пользователя, если такого нет, ищем группу с этим юзернеймом
   function openProfileByUsername(username) {
     NC.api('GET', '/api/users/' + encodeURIComponent(username))
       .then((data) => openProfile(data.user, false, null))
@@ -1775,13 +1895,21 @@
     e.preventDefault();
     const displayName = els.editName.value.trim();
     const bio = els.editBio.value.trim();
+    const birth = $('editBirth').value || null;
+    const featuredRaw = $('editFeatured').value;
+    const featuredChatId = featuredRaw ? Number(featuredRaw) : null;
     if (!displayName || displayName.length > 64) return toast(NC.t('nameLength'));
     if (bio.length > 200) return toast(NC.t('bioLength'));
     try {
-      const { user } = await NC.api('PATCH', '/api/users/me', { displayName: displayName, bio: bio });
+      const { user } = await NC.api('PATCH', '/api/users/me', {
+        displayName: displayName,
+        bio: bio,
+        birthDate: birth,
+        featuredChatId: featuredChatId,
+      });
       state.me = Object.assign({}, state.me, user);
       renderSettings();
-      renderProfile(state.me, true);
+      renderProfile(state.me, true, false);
       toast(NC.t('saved'));
       scheduleListRefresh();
     } catch (err) {
@@ -1806,7 +1934,7 @@
       if (!res.ok) throw new NC.ApiError(data.error || X('uploadFailed'), res.status);
       state.me = Object.assign({}, state.me, { avatarUrl: data.avatarUrl });
       renderSettings();
-      if (state.openSheet === 'profile' && state.profileEditable) renderProfile(state.me, true);
+      if (state.openSheet === 'profile' && state.profileEditable) renderProfile(state.me, true, state.profileEditing);
       toast(X('photoSaved'));
       scheduleListRefresh();
     } catch (err) {
@@ -1837,7 +1965,7 @@
     state.userResultMap = new Map(users.map((u) => [u.username, u]));
     const groupHtml = groups.map((g) =>
       '<li><button class="user-item" type="button" data-group-id="' + g.id + '">' +
-      NC.avatarHtml({ displayName: g.title, username: g.username }, 'avatar-md') +
+      NC.avatarHtml({ displayName: g.title, username: g.username, avatarUrl: g.avatarUrl }, 'avatar-md') +
       '<span class="chat-meta"><span class="chat-name"><span class="truncate">' + NC.esc(g.title) + '</span></span>' +
       '<span class="chat-preview">' + NC.esc(X('groupTag') + ' · ' + membersText(g.memberCount)) + '</span></span>' +
       '</button></li>'
@@ -1940,7 +2068,35 @@
 
   // ----- Информация о группе -----
 
+  function ensureGroupMediaUi() {
+    const sheet = els.groupInfoSheet;
+    const body = sheet && sheet.querySelector('.sheet-body');
+    if (!body || $('groupBanner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'groupBanner';
+    banner.className = 'pf-banner';
+    body.insertBefore(banner, body.firstChild);
+
+    const head = body.querySelector('.profile-head');
+    const row = document.createElement('div');
+    row.id = 'groupMediaRow';
+    row.className = 'media-row';
+    row.hidden = true;
+    row.innerHTML =
+      '<button id="groupAvatarBtn" class="pill-action" type="button"></button>' +
+      '<button id="groupBannerBtn" class="pill-action" type="button" hidden></button>' +
+      '<input id="groupAvatarInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>' +
+      '<input id="groupBannerInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>';
+    head.parentNode.insertBefore(row, head.nextSibling);
+
+    $('groupAvatarBtn').addEventListener('click', () => $('groupAvatarInput').click());
+    $('groupBannerBtn').addEventListener('click', () => $('groupBannerInput').click());
+    $('groupAvatarInput').addEventListener('change', onGroupAvatarPicked);
+    $('groupBannerInput').addEventListener('change', onGroupBannerPicked);
+  }
+
   function clearGroupInfo() {
+    ensureGroupMediaUi();
     els.groupInfoAvatar.innerHTML = '';
     els.groupInfoTitle.textContent = '';
     els.groupInfoSub.textContent = '';
@@ -1950,6 +2106,9 @@
     els.groupLeaveBtn.hidden = true;
     els.groupDeleteBtn.hidden = true;
     els.groupMembers.innerHTML = '';
+    $('groupBanner').innerHTML = '';
+    $('groupBanner').classList.remove('has-image');
+    $('groupMediaRow').hidden = true;
   }
 
   function memberHtml(m, g) {
@@ -1986,7 +2145,11 @@
 
   function renderGroupInfo(g) {
     state.groupFull = g;
-    els.groupInfoAvatar.innerHTML = NC.avatarHtml({ displayName: g.title, username: g.username }, 'avatar-xl');
+    ensureGroupMediaUi();
+    const banner = $('groupBanner');
+    banner.innerHTML = g.bannerUrl ? '<img src="' + NC.esc(g.bannerUrl) + '" alt="">' : '';
+    banner.classList.toggle('has-image', Boolean(g.bannerUrl));
+    els.groupInfoAvatar.innerHTML = NC.avatarHtml({ displayName: g.title, username: g.username, avatarUrl: g.avatarUrl }, 'avatar-xl');
     els.groupInfoTitle.textContent = g.title;
     els.groupInfoSub.textContent = membersText(g.memberCount) + ' · @' + g.username;
     els.groupInfoDesc.hidden = !g.description;
@@ -1996,6 +2159,10 @@
     els.groupAddWrap.hidden = !isMod;
     els.groupLeaveBtn.hidden = g.myRole === 'owner';
     els.groupDeleteBtn.hidden = g.myRole !== 'owner';
+    $('groupMediaRow').hidden = !isMod;
+    $('groupAvatarBtn').textContent = txt('Фото группы', 'Group photo');
+    $('groupBannerBtn').textContent = txt('Баннер 3:1', 'Banner 3:1');
+    $('groupBannerBtn').hidden = !(g.myRole === 'owner' && state.me && state.me.novaPlus);
     els.groupMembers.innerHTML = g.members.map((m) => memberHtml(m, g)).join('');
   }
 
@@ -2027,13 +2194,212 @@
     state.groupCardId = card.id;
     state.groupFull = null;
     clearGroupInfo();
-    els.groupInfoAvatar.innerHTML = NC.avatarHtml({ displayName: card.title, username: card.username }, 'avatar-xl');
+    els.groupInfoAvatar.innerHTML = NC.avatarHtml({ displayName: card.title, username: card.username, avatarUrl: card.avatarUrl }, 'avatar-xl');
     els.groupInfoTitle.textContent = card.title;
     els.groupInfoSub.textContent = membersText(card.memberCount) + ' · @' + card.username;
     els.groupInfoDesc.hidden = !card.description;
     els.groupInfoDesc.textContent = card.description || '';
     els.groupJoinBtn.hidden = false;
     openSheet('groupInfo');
+  }
+
+  // ----- Фото и баннер группы, баннер и музыка профиля -----
+
+  // Центрированная обрезка картинки до нужной пропорции (баннер 3:1, аватар 1:1)
+  function cropImage(file, ratioW, ratioH, maxW) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const target = ratioW / ratioH;
+        const srcRatio = img.width / img.height;
+        let sx = 0;
+        let sy = 0;
+        let sw = img.width;
+        let sh = img.height;
+        if (srcRatio > target) {
+          sw = img.height * target;
+          sx = (img.width - sw) / 2;
+        } else {
+          sh = img.width / target;
+          sy = (img.height - sh) / 2;
+        }
+        const outW = Math.min(maxW, Math.round(sw));
+        const outH = Math.round(outW / target);
+        const canvas = document.createElement('canvas');
+        canvas.width = outW;
+        canvas.height = outH;
+        canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('crop'))), 'image/jpeg', 0.9);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('image'));
+      };
+      img.src = url;
+    });
+  }
+
+  async function uploadRaw(path, blob, mime, fileName) {
+    const headers = {
+      Authorization: 'Bearer ' + NC.getToken(),
+      'Content-Type': 'application/octet-stream',
+      'X-File-Type': mime,
+    };
+    if (fileName) headers['X-File-Name'] = encodeURIComponent(fileName);
+    const res = await fetch(path, { method: 'POST', headers: headers, body: blob });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new NC.ApiError(data.error || NC.t('errGeneric'), res.status);
+    return data;
+  }
+
+  async function refreshMe() {
+    const { user } = await NC.api('GET', '/api/users/me');
+    state.me = user;
+    renderSettings();
+    if (state.openSheet === 'profile' && state.profileEditable) {
+      renderProfile(state.me, true, state.profileEditing);
+    }
+  }
+
+  async function onGroupAvatarPicked() {
+    const input = $('groupAvatarInput');
+    const file = input.files[0];
+    input.value = '';
+    const chatId = state.groupCardId;
+    if (!file || !chatId) return;
+    if (!IMAGE_RE.test(file.type)) return toast(X('photoWrong'));
+    try {
+      const blob = await cropImage(file, 1, 1, 512);
+      await uploadRaw('/api/files/group/' + chatId + '/avatar', blob, 'image/jpeg');
+      toast(NC.t('saved'));
+      await refreshGroupInfo(chatId);
+      scheduleListRefresh();
+    } catch (err) {
+      toast(err instanceof NC.ApiError ? err.message : txt('Не удалось загрузить фото', 'Upload failed'));
+    }
+  }
+
+  async function onGroupBannerPicked() {
+    const input = $('groupBannerInput');
+    const file = input.files[0];
+    input.value = '';
+    const chatId = state.groupCardId;
+    if (!file || !chatId) return;
+    if (!IMAGE_RE.test(file.type)) return toast(X('photoWrong'));
+    try {
+      const blob = await cropImage(file, 3, 1, 1200);
+      await uploadRaw('/api/files/group/' + chatId + '/banner', blob, 'image/jpeg');
+      toast(NC.t('saved'));
+      await refreshGroupInfo(chatId);
+    } catch (err) {
+      toast(err instanceof NC.ApiError ? err.message : txt('Не удалось загрузить баннер', 'Upload failed'));
+    }
+  }
+
+  async function onBannerPicked() {
+    const input = $('bannerInput');
+    const file = input.files[0];
+    input.value = '';
+    if (!file) return;
+    if (!IMAGE_RE.test(file.type)) return toast(X('photoWrong'));
+    try {
+      const blob = await cropImage(file, 3, 1, 1200);
+      await uploadRaw('/api/files/banner', blob, 'image/jpeg');
+      await refreshMe();
+      toast(NC.t('saved'));
+    } catch (err) {
+      toast(err instanceof NC.ApiError ? err.message : txt('Не удалось загрузить баннер', 'Upload failed'));
+    }
+  }
+
+  async function onMusicPicked() {
+    const input = $('musicInput');
+    const file = input.files[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) return toast(txt('Файл больше 10 МБ', 'File is larger than 10 MB'));
+    const mime = file.type || (/\.wav$/i.test(file.name) ? 'audio/wav' : 'audio/mpeg');
+    try {
+      await uploadRaw('/api/files/music', file, mime, file.name);
+      await refreshMe();
+      toast(NC.t('saved'));
+    } catch (err) {
+      toast(err instanceof NC.ApiError ? err.message : NC.t('errNetwork'));
+    }
+  }
+
+  function bindProfileExtras() {
+    const audio = $('musicAudio');
+    audio.addEventListener('play', syncMusicButton);
+    audio.addEventListener('pause', syncMusicButton);
+    audio.addEventListener('ended', syncMusicButton);
+    $('musicPlay').addEventListener('click', () => {
+      if (audio.paused) {
+        audio.play().catch(() => toast(txt('Не удалось воспроизвести', 'Playback failed')));
+      } else {
+        audio.pause();
+      }
+    });
+
+    $('featuredCard').addEventListener('click', () => {
+      const id = Number($('featuredCard').dataset.groupId);
+      if (id) openGroupInfo(id);
+    });
+
+    $('selfPhoto').addEventListener('click', () => els.avatarInput.click());
+    $('selfEdit').addEventListener('click', () => renderProfile(state.me, true, true));
+    $('selfSettings').addEventListener('click', () => {
+      renderSettings();
+      openSheet('settings');
+    });
+
+    $('musicUploadBtn').addEventListener('click', () => $('musicInput').click());
+    $('musicInput').addEventListener('change', onMusicPicked);
+    $('musicRemoveBtn').addEventListener('click', async () => {
+      try {
+        await NC.api('DELETE', '/api/files/music');
+        await refreshMe();
+        toast(NC.t('saved'));
+      } catch (err) {
+        toast(errorText(err));
+      }
+    });
+
+    $('bannerUploadBtn').addEventListener('click', () => $('bannerInput').click());
+    $('bannerInput').addEventListener('change', onBannerPicked);
+    $('bannerRemoveBtn').addEventListener('click', async () => {
+      try {
+        await NC.api('DELETE', '/api/files/banner');
+        await refreshMe();
+        toast(NC.t('saved'));
+      } catch (err) {
+        toast(errorText(err));
+      }
+    });
+
+    // Скрытие даты рождения: переключатель в «Конфиденциальность»
+    $('hideBirthLabel').textContent = txt('Скрыть дату рождения', 'Hide birthday');
+    const privacyRow = document.querySelector('[data-go="privacy"]');
+    if (privacyRow) {
+      privacyRow.addEventListener('click', () => {
+        $('hideBirthToggle').checked = Boolean(state.me) && state.me.showBirthDate === false;
+      });
+    }
+    $('hideBirthToggle').addEventListener('change', async () => {
+      const hide = $('hideBirthToggle').checked;
+      const previous = !hide;
+      state.me.showBirthDate = !hide;
+      try {
+        await NC.api('PATCH', '/api/users/me', { showBirthDate: !hide });
+        toast(NC.t('saved'));
+      } catch (err) {
+        $('hideBirthToggle').checked = previous;
+        state.me.showBirthDate = previous;
+        toast(errorText(err));
+      }
+    });
   }
 
   // ----- Сокет -----
@@ -2105,7 +2471,7 @@
     renderTabAction();
     if (state.messages.length) rerenderMessages();
     if (state.openSheet === 'profile' && state.profileUser && !state.profileEditable) {
-      renderProfile(state.profileUser, false);
+      renderProfile(state.profileUser, false, false);
     }
     if (state.openSheet === 'groupInfo' && state.groupFull) {
       renderGroupInfo(state.groupFull);
@@ -2489,6 +2855,7 @@
     applyLabels();
     NC.on('lang', onLangChange);
     bindEvents();
+    bindProfileExtras();
     showSkeleton();
     autoGrow();
     setInterval(() => {

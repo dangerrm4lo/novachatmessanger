@@ -169,9 +169,12 @@
     const tags = [];
     if (u.role === 'admin') tags.push('<span class="tag">админ</span>');
     if (u.frozen) tags.push('<span class="tag warn">заморожен</span>');
+    if (u.novaPlus) tags.push('<span class="tag">Nova+</span>');
 
     const verifyBtn = '<button class="mini-btn" type="button" data-act="verify" data-value="' +
       (u.isVerified ? 'on' : 'off') + '">' + (u.isVerified ? 'Снять галочку' : 'Выдать галочку') + '</button>';
+    const novaBtn = '<button class="mini-btn" type="button" data-act="nova" data-value="' +
+      (u.novaPlus ? 'on' : 'off') + '">' + (u.novaPlus ? 'Снять Nova+' : 'Выдать Nova+') + '</button>';
     let freezeBtn = '';
     if (!self) {
       freezeBtn = u.frozen
@@ -189,7 +192,7 @@
       '<div class="user-row-head">' + esc(u.displayName) + (u.isVerified ? NC.verifiedHtml() : '') + tags.join('') + '</div>' +
       '<div class="user-row-sub">@' + esc(u.username) + '</div>' +
       reasonLine +
-      '<div class="row-actions">' + verifyBtn + freezeBtn + deleteBtn + '</div>' +
+      '<div class="row-actions">' + verifyBtn + novaBtn + freezeBtn + deleteBtn + '</div>' +
       '</li>';
   }
 
@@ -210,6 +213,8 @@
     try {
       if (act === 'verify') {
         await NC.api('PATCH', '/api/admin/users/' + id, { isVerified: btn.dataset.value === 'off' });
+      } else if (act === 'nova') {
+        await NC.api('PATCH', '/api/admin/users/' + id, { novaPlus: btn.dataset.value === 'off' });
       } else if (act === 'freeze') {
         const reason = window.prompt('Причина заморозки (увидит пользователь):', 'Нарушение правил NovaChat');
         if (reason === null) return;

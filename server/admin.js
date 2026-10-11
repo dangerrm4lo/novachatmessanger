@@ -8,7 +8,7 @@ router.use(requireAuth, requireAdmin);
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const MAINTENANCE_MINUTES = [5, 10, 30, 60];
-const USER_COLUMNS = 'id, username, display_name, role, is_verified, is_system, frozen_at, freeze_reason, created_at';
+const USER_COLUMNS = 'id, username, display_name, role, is_verified, is_system, frozen_at, freeze_reason, created_at, nova_plus';
 
 function parseId(value) {
   const id = Number(value);
@@ -22,6 +22,7 @@ function mapUser(u) {
     displayName: u.display_name,
     role: u.role,
     isVerified: u.is_verified,
+    novaPlus: Boolean(u.nova_plus),
     frozen: Boolean(u.frozen_at),
     freezeReason: u.freeze_reason || '',
     createdAt: u.created_at,
@@ -76,6 +77,9 @@ router.patch('/users/:id', wrap(async (req, res) => {
 
   if (typeof body.isVerified === 'boolean') {
     await pool.query('UPDATE users SET is_verified = $1 WHERE id = $2', [body.isVerified, id]);
+  }
+  if (typeof body.novaPlus === 'boolean') {
+    await pool.query('UPDATE users SET nova_plus = $1 WHERE id = $2', [body.novaPlus, id]);
   }
   if (typeof body.frozen === 'boolean') {
     if (id === req.userId) {

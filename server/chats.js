@@ -44,7 +44,7 @@ const MESSAGE_SELECT = [
 ].join(' ');
 
 const CHAT_LIST_SQL = [
-  'SELECT c.id AS chat_id, c.kind, c.title, c.username AS group_username,',
+  'SELECT c.id AS chat_id, c.kind, c.title, c.username AS group_username, c.avatar_file_id AS group_avatar, c.banner_file_id AS group_banner,',
   '  p.id AS peer_id, p.username AS peer_username, p.display_name AS peer_name,',
   '  p.is_verified AS peer_verified, p.is_system AS peer_system, p.avatar_file_id AS peer_avatar,',
   '  p.last_seen_at AS peer_seen, p.show_last_seen AS peer_show_seen,',
@@ -231,7 +231,7 @@ function mapChat(r) {
   const peer = isGroup
     ? {
       id: null, username: r.group_username || '', displayName: r.title || '', isVerified: false,
-      isSystem: false, isGroup: true, avatarUrl: null
+      isSystem: false, isGroup: true, avatarUrl: avatarUrl(r.group_avatar), bannerUrl: avatarUrl(r.group_banner)
     }
     : {
       id: r.peer_id, username: r.peer_username, displayName: r.peer_name, isVerified: r.peer_verified,
@@ -271,6 +271,7 @@ function mapGroupCard(r) {
     description: r.description || '',
     memberCount: r.member_count,
     isMember: Boolean(r.is_member),
+    avatarUrl: avatarUrl(r.avatar_file_id),
   };
 }
 
@@ -323,7 +324,7 @@ async function broadcast(chatId, messageId, event) {
 }
 
 async function groupInfo(chatId, myRole) {
-  const info = await pool.query('SELECT id, title, username, description FROM chats WHERE id = $1', [chatId]);
+  const info = await pool.query('SELECT id, title, username, description, avatar_file_id, banner_file_id FROM chats WHERE id = $1', [chatId]);
   const members = await pool.query(
     'SELECT u.id, u.username, u.display_name, u.is_verified, u.avatar_file_id, cm.role ' +
     'FROM chat_members cm JOIN users u ON u.id = cm.user_id WHERE cm.chat_id = $1 ' +
@@ -336,6 +337,8 @@ async function groupInfo(chatId, myRole) {
     title: c.title,
     username: c.username,
     description: c.description,
+    avatarUrl: avatarUrl(c.avatar_file_id),
+    bannerUrl: avatarUrl(c.banner_file_id),
     myRole: myRole,
     memberCount: members.rows.length,
     members: members.rows.map((m) => ({
@@ -466,7 +469,7 @@ router.get('/groups/search', wrap(async (req, res) => {
   const q = String(req.query.q || '').toLowerCase().replace(/[^a-z0-9_]/g, '').replace(/_/g, '\\_');
   if (!q) return res.json({ groups: [] });
   const { rows } = await pool.query(
-    "SELECT c.id, c.title, c.username, c.description, " +
+    "SELECT c.id, c.title, c.username, c.description, c.avatar_file_id, " +
     "(SELECT COUNT(*) FROM chat_members x WHERE x.chat_id = c.id)::int AS member_count, " +
     "EXISTS (SELECT 1 FROM chat_members m WHERE m.chat_id = c.id AND m.user_id = $2) AS is_member " +
     "FROM chats c WHERE c.kind = 'group' AND c.username LIKE $1 ORDER BY member_count DESC LIMIT 20",
@@ -530,7 +533,7 @@ router.get('/groups/by-username/:username', wrap(async (req, res) => {
   const username = String(req.params.username || '').trim().toLowerCase();
   if (!GROUP_USERNAME_RE.test(username)) return notFound(res, 'Группа не найдена');
   const { rows } = await pool.query(
-    "SELECT c.id, c.title, c.username, c.description, " +
+    "SELECT c.id, c.title, c.username, c.description, c.avatar_file_id, " +
     "(SELECT COUNT(*) FROM chat_members x WHERE x.chat_id = c.id)::int AS member_count, " +
     "EXISTS (SELECT 1 FROM chat_members m WHERE m.chat_id = c.id AND m.user_id = $2) AS is_member " +
     "FROM chats c WHERE c.kind = 'group' AND c.username = $1",

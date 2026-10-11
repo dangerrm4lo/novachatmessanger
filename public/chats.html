@@ -267,8 +267,10 @@
         aria-label="Close"></button>
     </header>
     <div class="sheet-body">
-      <div class="profile-head">
-        <div class="avatar-wrap">
+      <div id="profileBanner" class="pf-banner"></div>
+
+      <div class="pf-head">
+        <div class="avatar-wrap pf-avatar">
           <div id="profileAvatar"></div>
           <button id="avatarEdit" class="avatar-edit" type="button" data-icon="camera" data-icon-size="15"
             aria-label="Photo"></button>
@@ -280,6 +282,33 @@
 
       <div id="profileActions" class="profile-actions" hidden>
         <button id="profileWrite" class="btn btn-primary" type="button" data-x="write">Написать</button>
+        <div id="selfActions" class="self-actions" hidden>
+          <button id="selfPhoto" class="pill-action" type="button"></button>
+          <button id="selfEdit" class="pill-action" type="button"></button>
+          <button id="selfSettings" class="pill-action" type="button"></button>
+        </div>
+      </div>
+
+      <div id="musicBar" class="music-bar" hidden>
+        <button id="musicPlay" class="music-play" type="button" aria-label="Play"></button>
+        <span class="music-meta"><span id="musicTitle" class="music-title"></span></span>
+        <audio id="musicAudio" preload="none"></audio>
+      </div>
+
+      <div id="featuredWrap" class="featured-wrap" hidden>
+        <p id="featuredLabel" class="section-label"></p>
+        <button id="featuredCard" class="featured-card" type="button"></button>
+      </div>
+
+      <div class="info-rows">
+        <div class="info-row">
+          <p id="infoUsername" class="info-value"></p>
+          <p id="infoUsernameLabel" class="info-label"></p>
+        </div>
+        <div id="birthRow" class="info-row" hidden>
+          <p id="profileBirth" class="info-value"></p>
+          <p id="profileBirthLabel" class="info-label"></p>
+        </div>
       </div>
 
       <p id="profileBio" class="profile-bio"></p>
@@ -289,6 +318,22 @@
         <input id="editName" class="field" type="text" maxlength="64">
         <label class="label" for="editBio" data-i18n="bio">О себе</label>
         <textarea id="editBio" class="field textarea" rows="3" maxlength="200"></textarea>
+        <label id="editBirthLabel" class="label" for="editBirth"></label>
+        <input id="editBirth" class="field" type="date">
+        <label id="editFeaturedLabel" class="label" for="editFeatured"></label>
+        <select id="editFeatured" class="field"></select>
+
+        <div id="bannerEditWrap" class="media-edit" hidden>
+          <button id="bannerUploadBtn" class="btn btn-soft" type="button"></button>
+          <button id="bannerRemoveBtn" class="btn btn-danger" type="button" hidden></button>
+          <p id="bannerNeedPlus" class="hint-center" hidden></p>
+        </div>
+
+        <div id="musicEdit" class="media-edit" hidden>
+          <button id="musicUploadBtn" class="btn btn-soft" type="button"></button>
+          <button id="musicRemoveBtn" class="btn btn-danger" type="button" hidden></button>
+        </div>
+
         <button class="btn btn-primary" type="submit" data-i18n="save">Сохранить</button>
       </form>
 
@@ -309,6 +354,8 @@
       </div>
     </div>
     <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+    <input id="bannerInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+    <input id="musicInput" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav" hidden>
   </section>
 
   <section id="collectionSheet" class="sheet" role="dialog" aria-modal="true">
@@ -457,6 +504,15 @@
       </div>
       <p class="nova-note" data-x="lastSeenHint">Если выключить, собеседники увидят «был(а) недавно» вместо точного
         времени.</p>
+      <div class="set-group">
+        <label class="set-row set-switch">
+          <span class="set-label" id="hideBirthLabel">Скрыть дату рождения</span>
+          <span class="switch">
+            <input id="hideBirthToggle" type="checkbox">
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </span>
+        </label>
+      </div>
     </div>
   </section>
 
