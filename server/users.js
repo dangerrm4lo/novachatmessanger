@@ -30,6 +30,7 @@ function fullUser(u) {
   const base = publicUser(u);
   base.theme = u.theme;
   base.language = u.language;
+  base.showLastSeen = u.show_last_seen !== false;
   return base;
 }
 
@@ -70,6 +71,12 @@ router.patch('/me', wrap(async (req, res) => {
       return res.status(400).json({ error: 'Неизвестный язык' });
     }
     fields.language = body.language;
+  }
+  if (body.showLastSeen !== undefined) {
+    if (typeof body.showLastSeen !== 'boolean') {
+      return res.status(400).json({ error: 'Некорректное значение' });
+    }
+    fields.show_last_seen = body.showLastSeen;
   }
 
   const columns = Object.keys(fields);

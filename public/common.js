@@ -477,7 +477,7 @@
         '" alt="" draggable="false"></span>';
     }
     if (user.isSystem) {
-      return '<span class="' + cls + ' avatar-system">' + icon('logo', 24) + '</span>';
+      return '<span class="' + cls + ' avatar-system"><img src="/icons/logo.png" alt="" dragable="fale"></span>';
     }
     return '<span class="' + cls + '" style="background:' + avatarColor(user.username) + '">' +
       esc(initials(user.displayName)) + '</span>';

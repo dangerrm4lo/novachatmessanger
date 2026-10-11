@@ -1,7 +1,7 @@
 const express = require('express');
 const { pool } = require('./db');
 const { requireAuth } = require('./auth');
-const { emitToUsers } = require('./realtime');
+const { emitToUsers, isOnline } = require('./realtime');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -10,7 +10,16 @@ const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 const MAX_TEXT = 4000;
 const PAGE = 50;
 const GROUP_USERNAME_RE = /^[a-z0-9_]{5,32}$/;
-const REACTIONS = ['\u{1F44D}', '\u{1F525}', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F389}'];
+
+// Первые 7 реакций идут в быструю панель, остальные в сетку «Ещё»
+const REACTIONS = [
+  '\u{1F44D}', '\u{1F525}', '\u{1F496}', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F389}',
+  '\u{1F970}', '\u{1F44F}', '\u{1F914}', '\u{1F92F}', '\u{1F631}', '\u{1F92C}', '\u{1F64F}',
+  '\u{1F44C}', '\u{1F601}', '\u{1F929}', '\u{1F97A}', '\u{1F62D}', '\u{1F4A9}', '\u{1F921}',
+  '\u{1F634}', '\u{1F44E}', '\u{1F971}', '\u{1F92E}', '\u{1F608}', '\u{1FAE1}', '\u{1F353}',
+  '\u{1F37E}', '\u{1F48B}', '\u{1F3C6}', '\u{1F494}', '\u{1F928}', '\u{1F610}', '\u{1F440}',
+  '\u{1F383}', '\u{1F47B}', '\u{1F913}', '\u{1F4AF}', '\u{1F91D}',
+];
 
 const WELCOME = {
   ru: (name) => 'Добро пожаловать в NovaChat, ' + name + '! Здесь можно писать друзьям. Тему и язык меняются в настройках, а профиль редактируется в разделе «Профиль». Нашёл ошибку или есть идея? Напиши @dangerrm4lo.',
@@ -21,6 +30,8 @@ const MESSAGE_SELECT = [
   'SELECT m.id, m.chat_id, m.sender_id, m.text, m.created_at, m.deleted_for_all,',
   '  m.forwarded_from_id, fu.display_name AS forwarded_name,',
   '  m.file_id, f.name AS file_name, f.mime AS file_mime, f.size AS file_size,',
+  '  m.reply_to_id, rm.text AS reply_text, rm.deleted_for_all AS reply_deleted,',
+  '  rm.file_id AS reply_file_id, ru.display_name AS reply_name,',
   '  su.display_name AS sender_name, su.username AS sender_username,',
   '  EXISTS (SELECT 1 FROM chat_members cm WHERE cm.chat_id = m.chat_id',
   '    AND cm.user_id <> m.sender_id AND cm.last_read_id >= m.id) AS is_read',
@@ -28,12 +39,17 @@ const MESSAGE_SELECT = [
   'LEFT JOIN files f ON f.id = m.file_id',
   'LEFT JOIN users fu ON fu.id = m.forwarded_from_id',
   'LEFT JOIN users su ON su.id = m.sender_id',
+  'LEFT JOIN messages rm ON rm.id = m.reply_to_id',
+  'LEFT JOIN users ru ON ru.id = rm.sender_id',
 ].join(' ');
 
 const CHAT_LIST_SQL = [
   'SELECT c.id AS chat_id, c.kind, c.title, c.username AS group_username,',
   '  p.id AS peer_id, p.username AS peer_username, p.display_name AS peer_name,',
   '  p.is_verified AS peer_verified, p.is_system AS peer_system, p.avatar_file_id AS peer_avatar,',
+  '  p.last_seen_at AS peer_seen, p.show_last_seen AS peer_show_seen,',
+  '  EXISTS (SELECT 1 FROM blocks b WHERE b.user_id = $1 AND b.blocked_id = p.id) AS blocked_by_me,',
+  '  EXISTS (SELECT 1 FROM blocks b WHERE b.user_id = p.id AND b.blocked_id = $1) AS blocked_by_peer,',
   '  me.role AS my_role,',
   '  (SELECT COUNT(*)::int FROM chat_members x WHERE x.chat_id = c.id) AS member_count,',
   '  lm.id AS last_id, lm.text AS last_text, lm.created_at AS last_at, lm.sender_id AS last_sender_id,',
@@ -57,7 +73,7 @@ const CHAT_LIST_SQL = [
   '    AND NOT EXISTS (SELECT 1 FROM message_hidden h WHERE h.message_id = m.id AND h.user_id = $1)',
   '  ORDER BY m.id DESC LIMIT 1',
   ') lm ON TRUE',
-  'WHERE me.user_id = $1',
+  'WHERE me.user_id = $1 AND me.is_hidden = FALSE',
   'ORDER BY COALESCE(lm.created_at, c.created_at) DESC',
 ].join(' ');
 
@@ -89,15 +105,52 @@ async function withTx(fn) {
   }
 }
 
-// Участие пользователя в чате и его роль; null, если его нет в чате
+// Статус собеседника: блокировка → «давно», скрыто → «недавно», онлайн → «в сети», иначе время
+function statusOf(peerId, lastSeen, showSeen, blockedEither) {
+  if (blockedEither) return { mode: 'long' };
+  if (showSeen === false) return { mode: 'recent' };
+  if (peerId && isOnline(peerId)) return { mode: 'online' };
+  if (lastSeen) return { mode: 'exact', at: lastSeen };
+  return { mode: 'recent' };
+}
+
 async function getMembership(chatId, userId) {
   if (!chatId) return null;
   const { rows } = await pool.query(
-    'SELECT c.kind, cm.role, cm.last_read_id FROM chat_members cm ' +
-    'JOIN chats c ON c.id = cm.chat_id WHERE cm.chat_id = $1 AND cm.user_id = $2',
+    'SELECT c.kind, cm.role FROM chat_members cm JOIN chats c ON c.id = cm.chat_id ' +
+    'WHERE cm.chat_id = $1 AND cm.user_id = $2',
     [chatId, userId]
   );
   return rows[0] || null;
+}
+
+async function directPeerId(chatId, userId) {
+  const { rows } = await pool.query(
+    "SELECT cm.user_id FROM chat_members cm JOIN chats c ON c.id = cm.chat_id " +
+    "WHERE cm.chat_id = $1 AND cm.user_id <> $2 AND c.kind = 'direct'",
+    [chatId, userId]
+  );
+  return rows[0] ? rows[0].user_id : null;
+}
+
+async function blockState(chatId, userId) {
+  const peerId = await directPeerId(chatId, userId);
+  if (!peerId) return { byMe: false, byPeer: false };
+  const { rows } = await pool.query(
+    'SELECT EXISTS (SELECT 1 FROM blocks WHERE user_id = $1 AND blocked_id = $2) AS by_me, ' +
+    'EXISTS (SELECT 1 FROM blocks WHERE user_id = $2 AND blocked_id = $1) AS by_peer',
+    [userId, peerId]
+  );
+  return { byMe: rows[0].by_me, byPeer: rows[0].by_peer };
+}
+
+async function peerStatusFor(chatId, userId) {
+  const peerId = await directPeerId(chatId, userId);
+  if (!peerId) return null;
+  const { rows } = await pool.query('SELECT last_seen_at, show_last_seen FROM users WHERE id = $1', [peerId]);
+  const u = rows[0] || {};
+  const b = await blockState(chatId, userId);
+  return statusOf(peerId, u.last_seen_at, u.show_last_seen, b.byMe || b.byPeer);
 }
 
 async function hasSystemPeer(chatId, userId) {
@@ -109,10 +162,12 @@ async function hasSystemPeer(chatId, userId) {
   return rowCount > 0;
 }
 
-// В группе пишут только владелец и админы, в личном чате всегда, кроме системного NovaChat
+// В группе пишут владелец и админы. В личном чате можно, если нет блокировки и это не NovaChat
 async function canPost(me, chatId, userId) {
   if (me.kind === 'group') return me.role === 'owner' || me.role === 'admin';
-  return !(await hasSystemPeer(chatId, userId));
+  if (await hasSystemPeer(chatId, userId)) return false;
+  const b = await blockState(chatId, userId);
+  return !b.byMe && !b.byPeer;
 }
 
 async function memberIds(chatId) {
@@ -120,8 +175,30 @@ async function memberIds(chatId) {
   return rows.map((r) => r.user_id);
 }
 
-async function notifyMembers(chatId) {
-  emitToUsers(await memberIds(chatId), 'chats:changed', {});
+async function notifyMembers(chatId, event, payload) {
+  emitToUsers(await memberIds(chatId), event || 'chats:changed', payload || {});
+}
+
+// Закреплённое сообщение, права на закрепление, блокировка и статус собеседника
+async function chatMeta(chatId, userId) {
+  const { rows } = await pool.query(
+    'SELECT c.kind, pm.id AS pin_id, pm.text AS pin_text, pm.deleted_for_all AS pin_deleted, ' +
+    'pm.file_id AS pin_file, su.display_name AS pin_name, me.role AS my_role ' +
+    'FROM chats c JOIN chat_members me ON me.chat_id = c.id AND me.user_id = $2 ' +
+    'LEFT JOIN messages pm ON pm.id = c.pinned_message_id ' +
+    'LEFT JOIN users su ON su.id = pm.sender_id ' +
+    'WHERE c.id = $1',
+    [chatId, userId]
+  );
+  const r = rows[0];
+  if (!r) return null;
+  const blocked = await blockState(chatId, userId);
+  const canPin = r.kind === 'group' ? (r.my_role === 'owner' || r.my_role === 'admin') : true;
+  const pinned = r.pin_id && !r.pin_deleted
+    ? { id: Number(r.pin_id), text: r.pin_text || '', senderName: r.pin_name || '', hasFile: Boolean(r.pin_file) }
+    : null;
+  const peerStatus = r.kind === 'direct' ? await peerStatusFor(chatId, userId) : null;
+  return { kind: r.kind, pinned: pinned, blocked: blocked, canPin: canPin, peerStatus: peerStatus };
 }
 
 function mapMessage(r) {
@@ -138,11 +215,19 @@ function mapMessage(r) {
     reactions: [],
     file: r.file_id ? { id: r.file_id, name: r.file_name, mime: r.file_mime, size: r.file_size } : null,
     forwardedFrom: r.forwarded_from_id ? { id: r.forwarded_from_id, displayName: r.forwarded_name } : null,
+    replyTo: r.reply_to_id ? {
+      id: Number(r.reply_to_id),
+      text: r.reply_deleted ? '' : (r.reply_text || ''),
+      senderName: r.reply_name || '',
+      deleted: Boolean(r.reply_deleted),
+      hasFile: Boolean(r.reply_file_id) && !r.reply_deleted,
+    } : null,
   };
 }
 
 function mapChat(r) {
   const isGroup = r.kind === 'group';
+  const blocked = { byMe: Boolean(r.blocked_by_me), byPeer: Boolean(r.blocked_by_peer) };
   const peer = isGroup
     ? {
       id: null, username: r.group_username || '', displayName: r.title || '', isVerified: false,
@@ -150,15 +235,20 @@ function mapChat(r) {
     }
     : {
       id: r.peer_id, username: r.peer_username, displayName: r.peer_name, isVerified: r.peer_verified,
-      isSystem: r.peer_system, isGroup: false, avatarUrl: avatarUrl(r.peer_avatar)
+      isSystem: r.peer_system, isGroup: false, avatarUrl: avatarUrl(r.peer_avatar),
+      status: statusOf(r.peer_id, r.peer_seen, r.peer_show_seen, blocked.byMe || blocked.byPeer)
     };
+  const canPostFlag = isGroup
+    ? (r.my_role === 'owner' || r.my_role === 'admin')
+    : !(peer.isSystem || blocked.byMe || blocked.byPeer);
   return {
     id: r.chat_id,
     kind: r.kind,
     peer: peer,
     memberCount: r.member_count,
     myRole: r.my_role,
-    canPost: isGroup ? (r.my_role === 'owner' || r.my_role === 'admin') : true,
+    canPost: canPostFlag,
+    blocked: blocked,
     lastMessage: r.last_id ? {
       id: Number(r.last_id),
       text: r.last_deleted ? '' : r.last_text,
@@ -199,7 +289,6 @@ async function attachReactions(list, userId) {
   });
 }
 
-// Выборка сообщений: where и args дополняют запрос, placeholder $3 идёт первым аргументом
 async function queryMessages(userId, chatId, where, args, order, limit) {
   const params = [chatId, userId].concat(args);
   params.push(limit);
@@ -225,7 +314,6 @@ async function fetchMessageForUser(messageId, userId) {
   return list[0];
 }
 
-// Событие уходит каждому участнику со своими данными (реакции и скрытие зависят от пользователя)
 async function broadcast(chatId, messageId, event) {
   const ids = await memberIds(chatId);
   for (const id of ids) {
@@ -293,7 +381,6 @@ async function ensureWelcomeChat(userId) {
 router.get('/', wrap(async (req, res) => {
   await ensureWelcomeChat(req.userId);
   const { rows } = await pool.query(CHAT_LIST_SQL, [req.userId]);
-  // Личный чат без собеседника (аккаунт удалён) не показываем
   res.json({ chats: rows.filter((r) => r.kind === 'group' || r.peer_id).map(mapChat) });
 }));
 
@@ -304,12 +391,25 @@ router.post('/', wrap(async (req, res) => {
   if (!peer) return notFound(res, 'Пользователь не найден');
   if (peer.id === req.userId) return res.status(400).json({ error: 'Нельзя написать самому себе' });
   if (peer.is_system) return res.status(403).json({ error: 'Этот аккаунт не принимает сообщения' });
+
+  const b = await pool.query(
+    'SELECT EXISTS (SELECT 1 FROM blocks WHERE user_id = $1 AND blocked_id = $2) AS by_me, ' +
+    'EXISTS (SELECT 1 FROM blocks WHERE user_id = $2 AND blocked_id = $1) AS by_peer',
+    [req.userId, peer.id]
+  );
+  if (b.rows[0].by_me) return res.status(403).json({ error: 'Вы заблокировали этого пользователя' });
+  if (b.rows[0].by_peer) return res.status(403).json({ error: 'Этот пользователь ограничил сообщения' });
+
   const existing = await pool.query(
     "SELECT c.id FROM chats c JOIN chat_members a ON a.chat_id = c.id AND a.user_id = $1 " +
     "JOIN chat_members b ON b.chat_id = c.id AND b.user_id = $2 WHERE c.kind = 'direct' LIMIT 1",
     [req.userId, peer.id]
   );
-  if (existing.rows[0]) return res.json({ chatId: existing.rows[0].id });
+  if (existing.rows[0]) {
+    await pool.query('UPDATE chat_members SET is_hidden = FALSE WHERE chat_id = $1 AND user_id = $2',
+      [existing.rows[0].id, req.userId]);
+    return res.json({ chatId: existing.rows[0].id });
+  }
 
   const chatId = await withTx(async (client) => {
     const chat = await client.query('INSERT INTO chats DEFAULT VALUES RETURNING id');
@@ -322,6 +422,42 @@ router.post('/', wrap(async (req, res) => {
   });
   emitToUsers([req.userId, peer.id], 'chats:changed', {});
   res.status(201).json({ chatId: chatId });
+}));
+
+// Удалить чат из списка: собеседник и история остаются, при новом сообщении чат вернётся
+router.post('/:id/hide', wrap(async (req, res) => {
+  const chatId = parseId(req.params.id);
+  const me = await getMembership(chatId, req.userId);
+  if (!me) return notFound(res);
+  if (me.kind !== 'direct') return res.status(400).json({ error: 'Группу нельзя удалить из списка, её можно покинуть' });
+  await pool.query('UPDATE chat_members SET is_hidden = TRUE WHERE chat_id = $1 AND user_id = $2', [chatId, req.userId]);
+  emitToUsers([req.userId], 'chats:changed', {});
+  res.json({ ok: true });
+}));
+
+router.post('/:id/block', wrap(async (req, res) => {
+  const chatId = parseId(req.params.id);
+  const me = await getMembership(chatId, req.userId);
+  if (!me) return notFound(res);
+  const peerId = await directPeerId(chatId, req.userId);
+  if (!peerId) return res.status(400).json({ error: 'Заблокировать можно только собеседника в личном чате' });
+  await pool.query(
+    'INSERT INTO blocks (user_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+    [req.userId, peerId]
+  );
+  emitToUsers([req.userId, peerId], 'chats:changed', {});
+  res.json({ ok: true });
+}));
+
+router.delete('/:id/block', wrap(async (req, res) => {
+  const chatId = parseId(req.params.id);
+  const me = await getMembership(chatId, req.userId);
+  if (!me) return notFound(res);
+  const peerId = await directPeerId(chatId, req.userId);
+  if (!peerId) return res.status(400).json({ error: 'Это не личный чат' });
+  await pool.query('DELETE FROM blocks WHERE user_id = $1 AND blocked_id = $2', [req.userId, peerId]);
+  emitToUsers([req.userId, peerId], 'chats:changed', {});
+  res.json({ ok: true });
 }));
 
 // ----- Группы -----
@@ -401,6 +537,7 @@ router.patch('/:id', wrap(async (req, res) => {
   const me = await getMembership(chatId, req.userId);
   if (!me || me.kind !== 'group') return notFound(res, 'Группа не найдена');
   if (me.role !== 'owner' && me.role !== 'admin') return res.status(403).json({ error: 'Нет прав' });
+
   const body = req.body || {};
   const sets = [];
   const params = [];
@@ -485,10 +622,7 @@ router.delete('/:id/members/:userId', wrap(async (req, res) => {
   if (!me || me.kind !== 'group' || !targetId) return notFound(res, 'Группа не найдена');
   if (me.role !== 'owner' && me.role !== 'admin') return res.status(403).json({ error: 'Нет прав' });
 
-  const target = await pool.query(
-    'SELECT role FROM chat_members WHERE chat_id = $1 AND user_id = $2',
-    [chatId, targetId]
-  );
+  const target = await pool.query('SELECT role FROM chat_members WHERE chat_id = $1 AND user_id = $2', [chatId, targetId]);
   if (!target.rowCount) return notFound(res, 'Участник не найден');
   const role = target.rows[0].role;
   if (role === 'owner') return res.status(400).json({ error: 'Нельзя исключить владельца' });
@@ -511,10 +645,7 @@ router.post('/:id/members/:userId/role', wrap(async (req, res) => {
   const role = (req.body || {}).role;
   if (role !== 'admin' && role !== 'member') return res.status(400).json({ error: 'Неизвестная роль' });
 
-  const target = await pool.query(
-    'SELECT role FROM chat_members WHERE chat_id = $1 AND user_id = $2',
-    [chatId, targetId]
-  );
+  const target = await pool.query('SELECT role FROM chat_members WHERE chat_id = $1 AND user_id = $2', [chatId, targetId]);
   if (!target.rowCount) return notFound(res, 'Участник не найден');
   if (target.rows[0].role === 'owner') return res.status(400).json({ error: 'Роль владельца нельзя изменить' });
 
@@ -523,13 +654,44 @@ router.post('/:id/members/:userId/role', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// ----- Закрепление -----
+
+router.post('/:id/pin/:messageId', wrap(async (req, res) => {
+  const chatId = parseId(req.params.id);
+  const messageId = parseId(req.params.messageId);
+  const me = await getMembership(chatId, req.userId);
+  if (!me || !messageId) return notFound(res);
+  if (me.kind === 'group' && me.role !== 'owner' && me.role !== 'admin') {
+    return res.status(403).json({ error: 'Закреплять сообщения могут администраторы группы' });
+  }
+  const ok = await pool.query('SELECT 1 FROM messages WHERE id = $1 AND chat_id = $2', [messageId, chatId]);
+  if (!ok.rowCount) return notFound(res, 'Сообщение не найдено');
+
+  await pool.query('UPDATE chats SET pinned_message_id = $1 WHERE id = $2', [messageId, chatId]);
+  await notifyMembers(chatId, 'chat:meta', { chatId: chatId });
+  res.json({ ok: true });
+}));
+
+router.delete('/:id/pin', wrap(async (req, res) => {
+  const chatId = parseId(req.params.id);
+  const me = await getMembership(chatId, req.userId);
+  if (!me) return notFound(res);
+  if (me.kind === 'group' && me.role !== 'owner' && me.role !== 'admin') {
+    return res.status(403).json({ error: 'Откреплять сообщения могут администраторы группы' });
+  }
+  await pool.query('UPDATE chats SET pinned_message_id = NULL WHERE id = $1', [chatId]);
+  await notifyMembers(chatId, 'chat:meta', { chatId: chatId });
+  res.json({ ok: true });
+}));
+
 // ----- Сообщения -----
 
-// Окно сообщений: latest (по умолчанию), before (старее), after (новее), around (вокруг сообщения)
+// Окно сообщений: последние (по умолчанию), before, after или around. Всегда возвращает meta
 router.get('/:id/messages', wrap(async (req, res) => {
   const chatId = parseId(req.params.id);
   const me = await getMembership(chatId, req.userId);
   if (!me) return notFound(res);
+  const meta = await chatMeta(chatId, req.userId);
 
   const limit = Math.min(parseId(req.query.limit) || PAGE, 100);
   const before = parseId(req.query.before);
@@ -547,6 +709,7 @@ router.get('/:id/messages', wrap(async (req, res) => {
       messages: messages,
       hasOlder: older.length > half,
       hasNewer: newer.length > half,
+      meta: meta,
     });
   }
 
@@ -554,7 +717,7 @@ router.get('/:id/messages', wrap(async (req, res) => {
     const newer = await queryMessages(req.userId, chatId, ' AND m.id > $3', [after], 'ASC', limit + 1);
     const messages = newer.slice(0, limit);
     await attachReactions(messages, req.userId);
-    return res.json({ messages: messages, hasNewer: newer.length > limit });
+    return res.json({ messages: messages, hasNewer: newer.length > limit, meta: meta });
   }
 
   const where = before ? ' AND m.id < $3' : '';
@@ -562,7 +725,7 @@ router.get('/:id/messages', wrap(async (req, res) => {
   const list = await queryMessages(req.userId, chatId, where, args, 'DESC', limit + 1);
   const messages = list.slice(-limit);
   await attachReactions(messages, req.userId);
-  res.json({ messages: messages, hasMore: list.length > limit });
+  res.json({ messages: messages, hasMore: list.length > limit, meta: meta });
 }));
 
 router.get('/:id/search', wrap(async (req, res) => {
@@ -588,17 +751,21 @@ router.post('/:id/messages', wrap(async (req, res) => {
   const chatId = parseId(req.params.id);
   const me = await getMembership(chatId, req.userId);
   if (!me) return notFound(res);
+
   if (!(await canPost(me, chatId, req.userId))) {
-    return res.status(403).json({
-      error: me.kind === 'group'
-        ? 'Писать в группе могут только администраторы'
-        : 'Сообщения в NovaChat не принимаются',
-    });
+    let error = 'Писать в группе могут только администраторы';
+    if (me.kind !== 'group') {
+      const b = await blockState(chatId, req.userId);
+      error = b.byMe ? 'Вы заблокировали этого пользователя'
+        : (b.byPeer ? 'Этот пользователь ограничил сообщения' : 'Сообщения в NovaChat не принимаются');
+    }
+    return res.status(403).json({ error: error });
   }
 
   const body = req.body || {};
   const text = typeof body.text === 'string' ? body.text.trim() : '';
   const fileId = parseId(body.fileId);
+  const replyToId = parseId(body.replyToId);
   if (!text && !fileId) return res.status(400).json({ error: 'Пустое сообщение' });
   if (text.length > MAX_TEXT) return res.status(400).json({ error: 'Сообщение: не больше 4000 символов' });
 
@@ -609,11 +776,17 @@ router.post('/:id/messages', wrap(async (req, res) => {
     );
     if (!ok.rowCount) return res.status(400).json({ error: 'Файл не найден' });
   }
+  if (replyToId) {
+    const target = await pool.query('SELECT 1 FROM messages WHERE id = $1 AND chat_id = $2', [replyToId, chatId]);
+    if (!target.rowCount) return res.status(400).json({ error: 'Сообщение для ответа не найдено' });
+  }
 
   const ins = await pool.query(
-    'INSERT INTO messages (chat_id, sender_id, text, file_id) VALUES ($1, $2, $3, $4) RETURNING id',
-    [chatId, req.userId, text, fileId]
+    'INSERT INTO messages (chat_id, sender_id, text, file_id, reply_to_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+    [chatId, req.userId, text, fileId, replyToId]
   );
+  // Новое сообщение возвращает скрытый чат всем участникам
+  await pool.query('UPDATE chat_members SET is_hidden = FALSE WHERE chat_id = $1', [chatId]);
   await broadcast(chatId, ins.rows[0].id, 'message:new');
   const message = await fetchMessageForUser(ins.rows[0].id, req.userId);
   res.status(201).json({ message: message });
@@ -650,10 +823,10 @@ router.post('/:id/forward', wrap(async (req, res) => {
 
   const origin = src.forwarded_from_id || src.sender_id;
   const ins = await pool.query(
-    'INSERT INTO messages (chat_id, sender_id, text, file_id, forwarded_from_id) ' +
-    'VALUES ($1, $2, $3, $4, $5) RETURNING id',
+    'INSERT INTO messages (chat_id, sender_id, text, file_id, forwarded_from_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
     [chatId, req.userId, src.text, fileId, origin]
   );
+  await pool.query('UPDATE chat_members SET is_hidden = FALSE WHERE chat_id = $1', [chatId]);
   await broadcast(chatId, ins.rows[0].id, 'message:new');
   const message = await fetchMessageForUser(ins.rows[0].id, req.userId);
   res.status(201).json({ message: message });
@@ -668,7 +841,7 @@ router.post('/:id/messages/:messageId/reactions', wrap(async (req, res) => {
   if (REACTIONS.indexOf(emoji) === -1) return res.status(400).json({ error: 'Неизвестная реакция' });
 
   const exists = await pool.query(
-    'SELECT 1 FROM messages WHERE id = $1 AND chat_id = $2 AND deleted_for_all = FALSE',
+    'SELECT 1 FROM messages WHERE id = $1 AND chat_id = $2',
     [messageId, chatId]
   );
   if (!exists.rowCount) return notFound(res, 'Сообщение не найдено');
@@ -688,7 +861,7 @@ router.post('/:id/messages/:messageId/reactions', wrap(async (req, res) => {
   res.json({ message: message });
 }));
 
-// scope=me скрывает у себя. scope=all удаляет у всех: автор, а в группе ещё и владелец с админами
+// scope=me скрывает у себя. scope=all удаляет сообщение полностью у всех участников
 router.delete('/:id/messages/:messageId', wrap(async (req, res) => {
   const chatId = parseId(req.params.id);
   const messageId = parseId(req.params.messageId);
@@ -696,7 +869,7 @@ router.delete('/:id/messages/:messageId', wrap(async (req, res) => {
   const me = await getMembership(chatId, req.userId);
   if (!me || !messageId) return notFound(res);
 
-  const msg = await pool.query('SELECT id, sender_id FROM messages WHERE id = $1 AND chat_id = $2', [messageId, chatId]);
+  const msg = await pool.query('SELECT id, sender_id, file_id FROM messages WHERE id = $1 AND chat_id = $2', [messageId, chatId]);
   if (!msg.rowCount) return notFound(res, 'Сообщение не найдено');
 
   if (scope === 'all') {
@@ -704,9 +877,15 @@ router.delete('/:id/messages/:messageId', wrap(async (req, res) => {
     if (msg.rows[0].sender_id !== req.userId && !isMod) {
       return res.status(403).json({ error: 'Нельзя удалить чужое сообщение' });
     }
-    await pool.query("UPDATE messages SET deleted_for_all = TRUE, text = '', file_id = NULL WHERE id = $1", [messageId]);
-    await pool.query('DELETE FROM message_reactions WHERE message_id = $1', [messageId]);
-    await broadcast(chatId, messageId, 'message:updated');
+    const ids = await memberIds(chatId);
+    const fileId = msg.rows[0].file_id;
+    // Реакции и скрытия удалятся каскадно, ответы и закрепы обнулятся
+    await pool.query('DELETE FROM messages WHERE id = $1', [messageId]);
+    if (fileId) {
+      await pool.query("DELETE FROM files WHERE id = $1 AND kind = 'attachment'", [fileId]);
+    }
+    emitToUsers(ids, 'message:removed', { id: messageId, chatId: chatId });
+    await notifyMembers(chatId, 'chat:meta', { chatId: chatId });
   } else {
     await pool.query(
       'INSERT INTO message_hidden (message_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',

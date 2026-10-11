@@ -2221,3 +2221,544 @@ body.page-auth {
 .member-row .row-actions {
   margin-top: 4px;
 }
+
+/* ===== Этап 1: ответы, закрепы, настройки, реакции, упоминания ===== */
+.sheet-back {
+  justify-self: start;
+}
+
+.set-group {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.set-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 16px;
+  transition: background-color 0.2s;
+}
+
+.set-row+.set-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 56px;
+  right: 0;
+  border-top: 0.5px solid var(--separator);
+}
+
+.set-row:active {
+  background: var(--surface-2);
+}
+
+.set-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.set-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.set-chev {
+  display: flex;
+  color: var(--text-2);
+}
+
+.set-chev svg {
+  transform: rotate(180deg);
+}
+
+.nova-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 8px;
+  text-align: center;
+}
+
+.nova-star {
+  width: 76px;
+  height: 76px;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #7d5cff;
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgba(125, 92, 255, 0.35);
+  animation: pop 0.5s var(--ease) both;
+}
+
+.nova-note {
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text-2);
+  text-align: center;
+}
+
+.btn[disabled] {
+  opacity: 0.5;
+}
+
+.quote {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 4px;
+  padding: 4px 8px 4px 10px;
+  border-left: 2px solid var(--accent);
+  border-radius: 6px;
+  background: rgba(10, 132, 255, 0.12);
+  cursor: pointer;
+}
+
+.msg.mine .quote {
+  border-left-color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.quote-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.msg.mine .quote-name {
+  color: #ffffff;
+}
+
+.quote-text {
+  max-width: 260px;
+  font-size: 13px;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mention {
+  color: var(--accent);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.msg.mine .mention {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.reply-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 0;
+  background: var(--bar);
+}
+
+.reply-line {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.reply-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.reply-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.reply-text {
+  font-size: 13px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reply-close {
+  width: 30px;
+  height: 30px;
+}
+
+.pinned-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bar);
+  border-bottom: 0.5px solid var(--separator);
+}
+
+.pinned-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.pinned-line {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.pinned-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pinned-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.pinned-text {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pinned-unpin {
+  width: 30px;
+  height: 30px;
+}
+
+.ctx-reactions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  padding: 6px;
+  margin-bottom: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.ctx-react {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s var(--ease);
+}
+
+.ctx-react:active {
+  transform: scale(1.25);
+}
+
+.ctx-more-btn {
+  color: var(--text-2);
+}
+
+.ctx-more {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 6px 4px 8px;
+  margin-bottom: 6px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  animation: fadeIn 0.3s var(--ease) both;
+}
+
+.ctx-more[hidden] {
+  display: none !important;
+}
+
+.ctx-more .ctx-react {
+  width: 100%;
+  height: 36px;
+}
+
+/* ===== Скроллбар, настройки, переключатель, логотип ===== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 140, 0.45) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 140, 0.4);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 140, 0.65);
+  background-clip: padding-box;
+}
+
+/* Блоки внутри шторок не сжимаются, поэтому строки не обрезаются */
+.sheet-body>* {
+  flex-shrink: 0;
+}
+
+.set-group {
+  flex-shrink: 0;
+}
+
+.set-switch {
+  cursor: pointer;
+}
+
+.logo-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  display: block;
+  box-shadow: 0 10px 30px rgba(10, 132, 255, 0.35);
+  animation: pop 0.6s var(--ease) both;
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.switch-track {
+  width: 51px;
+  height: 31px;
+  border-radius: 16px;
+  background: var(--seg-bg);
+  position: relative;
+  transition: background-color 0.35s var(--ease);
+}
+
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.35s var(--ease);
+}
+
+.switch input:checked+.switch-track {
+  background: #34c759;
+}
+
+.switch input:checked+.switch-track .switch-thumb {
+  transform: translateX(20px);
+}
+
+/* ===== Аватарки: фото и логотип не выходят за рамку ===== */
+.avatar {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-sm {
+  width: 34px;
+  height: 34px;
+  font-size: 13px;
+}
+
+.avatar-md {
+  width: 50px;
+  height: 50px;
+  font-size: 18px;
+}
+
+.avatar-lg {
+  width: 60px;
+  height: 60px;
+  font-size: 22px;
+}
+
+.avatar-xl {
+  width: 96px;
+  height: 96px;
+  font-size: 34px;
+}
+
+/* Логотип системного аккаунта: скругление как у иконки приложения, а не круг */
+.avatar-photo:has(> img[src="/icons/logo.png"]) {
+  border-radius: 26%;
+  background: transparent;
+}
+
+/* ===== Профиль: вкладки, коллекции, «Написать» ===== */
+.profile-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.profile-actions .btn {
+  width: 100%;
+}
+
+.ptabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ptabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ptab {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.3s var(--ease), color 0.3s var(--ease), transform 0.2s var(--ease);
+}
+
+.ptab.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.ptab:active {
+  transform: scale(0.96);
+}
+
+.ptab-action {
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: transform 0.2s var(--ease);
+}
+
+.ptab-action:active {
+  transform: scale(0.95);
+}
+
+.ptab-action[hidden] {
+  display: none !important;
+}
+
+.ptab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fadeUp 0.35s var(--ease) both;
+}
+
+.ptab-panel[hidden] {
+  display: none !important;
+}
+
+.collection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.collection-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  animation: fadeUp 0.4s var(--ease) both;
+}
+
+.collection-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #bf5af2;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.collection-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.collection-name {
+  font-size: 16px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collection-sub {
+  font-size: 13px;
+  color: var(--text-2);
+}

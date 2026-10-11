@@ -7,11 +7,13 @@ const chatsRouter = require('./chats');
 const filesRouter = require('./files');
 const announcementsRouter = require('./announcements');
 const reportsRouter = require('./reports');
+const giftsRouter = require('./gifts');
 const adminRouter = require('./admin');
 const { initRealtime } = require('./realtime');
 
 const app = express();
 app.use(express.json({ limit: '100kb' }));
+app.use('/.well-known', express.static(path.join(__dirname, '..', 'public', '.well-known'), { dotfiles: 'allow' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.use('/api/auth', authRouter);
@@ -20,6 +22,7 @@ app.use('/api/chats', chatsRouter);
 app.use('/api/files', filesRouter);
 app.use('/api/announcements', announcementsRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/gifts', giftsRouter);
 app.use('/api/admin', adminRouter);
 
 app.use((err, req, res, next) => {

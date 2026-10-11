@@ -3,7 +3,15 @@
 
   const NC = window.NC;
   const $ = (id) => document.getElementById(id);
-  const REACTIONS = ['\u{1F44D}', '\u{1F525}', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F389}'];
+  const REACTIONS = [
+    '\u{1F44D}', '\u{1F525}', '\u{1F496}', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F389}',
+    '\u{1F970}', '\u{1F44F}', '\u{1F914}', '\u{1F92F}', '\u{1F631}', '\u{1F92C}', '\u{1F64F}',
+    '\u{1F44C}', '\u{1F601}', '\u{1F929}', '\u{1F97A}', '\u{1F62D}', '\u{1F4A9}', '\u{1F921}',
+    '\u{1F634}', '\u{1F44E}', '\u{1F971}', '\u{1F92E}', '\u{1F608}', '\u{1FAE1}', '\u{1F353}',
+    '\u{1F37E}', '\u{1F48B}', '\u{1F3C6}', '\u{1F494}', '\u{1F928}', '\u{1F610}', '\u{1F440}',
+    '\u{1F383}', '\u{1F47B}', '\u{1F913}', '\u{1F4AF}', '\u{1F91D}',
+  ];
+  const QUICK_COUNT = 7;
   const MAX_FILE = 10 * 1024 * 1024;
   const MAX_PHOTO = 2 * 1024 * 1024;
   const IMAGE_RE = /^image\/(png|jpeg|gif|webp)$/;
@@ -11,6 +19,30 @@
   const NOTICE_KEY = 'novachat_notice';
   const PAGE = 50;
   const AROUND = 60;
+
+  // Куда ведёт стрелка «назад» в профиле, в зависимости от того, откуда открыли профиль
+  const BACK_TARGETS = { settings: 'settings', groupInfo: 'groupInfo', newChat: 'newChat' };
+
+  const XICONS = {
+    user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+    lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    pie: '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
+    ban: '<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>',
+    star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+    globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+    reply: '<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>',
+    pin: '<path d="M12 17v5"/><path d="M9 3h6l-1 6 3 3H7l3-3z"/>',
+    plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+    leave: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+    gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 5 12 8c0-3 2-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
+  };
+
+  function xIcon(name, size) {
+    const s = size || 22;
+    return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      (XICONS[name] || '') + '</svg>';
+  }
 
   const XT = {
     ru: {
@@ -73,6 +105,51 @@
       members: 'Участники',
       leave: 'Покинуть группу',
       deleteGroup: 'Удалить группу',
+      reply: 'Ответить',
+      pin: 'Закрепить',
+      unpin: 'Открепить',
+      pinned: 'Закреплённое сообщение',
+      deleteChat: 'Удалить чат',
+      block: 'Заблокировать',
+      unblock: 'Разблокировать',
+      leaveGroup: 'Покинуть группу',
+      confirmHideChat: 'Удалить чат из списка? Он вернётся, если собеседник напишет снова.',
+      confirmBlock: 'Заблокировать пользователя? Вы не сможете писать друг другу.',
+      chatHidden: 'Чат удалён из списка',
+      blockedDone: 'Пользователь заблокирован',
+      unblockedDone: 'Пользователь разблокирован',
+      blockedByMe: 'Вы заблокировали этого пользователя',
+      blockedByPeer: 'Этот пользователь ограничил сообщения',
+      account: 'Аккаунт',
+      notifications: 'Уведомления',
+      privacy: 'Конфиденциальность',
+      dataMemory: 'Данные и память',
+      nova: 'Nova+',
+      novaSoon: 'Скоро',
+      novaText: 'Nova+ — подписка с дополнительными возможностями. Пока это заглушка: оформить её нельзя.',
+      comingSoon: 'Этот раздел появится в следующем обновлении.',
+      statusOnline: 'в сети',
+      statusRecent: 'был(а) недавно',
+      statusLong: 'был(а) давно',
+      statusAt: 'был(а) в {v}',
+      statusDate: 'был(а) {v}',
+      showLastSeen: 'Время захода',
+      lastSeenHint: 'Если выключить, собеседники увидят «был(а) недавно» вместо точного времени.',
+      tabGifts: 'Подарки',
+      tabPosts: 'Публикации',
+      write: 'Написать',
+      addCollection: 'Добавить коллекцию',
+      postsArchive: 'Архив публикаций',
+      giftsEmpty: 'Подарков пока нет',
+      postsEmpty: 'Публикаций пока нет',
+      newCollection: 'Новая коллекция',
+      collectionName: 'Название',
+      collectionHint: 'Пока коллекция пустая. Подарки появятся в следующем обновлении.',
+      collectionNeedTitle: 'Введите название коллекции',
+      collectionCreated: 'Коллекция создана',
+      collectionEmpty: 'Пусто',
+      archive: 'Архив публикаций',
+      archiveText: 'Здесь будут публикации, которые вы скроете. Пока публикаций нет.',
     },
     en: {
       forward: 'Forward',
@@ -134,12 +211,73 @@
       members: 'Members',
       leave: 'Leave group',
       deleteGroup: 'Delete group',
+      reply: 'Reply',
+      pin: 'Pin',
+      unpin: 'Unpin',
+      pinned: 'Pinned message',
+      deleteChat: 'Delete chat',
+      block: 'Block',
+      unblock: 'Unblock',
+      leaveGroup: 'Leave group',
+      confirmHideChat: 'Delete the chat from the list? It will come back if the other person writes again.',
+      confirmBlock: 'Block this user? You will not be able to message each other.',
+      chatHidden: 'Chat removed from the list',
+      blockedDone: 'User blocked',
+      unblockedDone: 'User unblocked',
+      blockedByMe: 'You blocked this user',
+      blockedByPeer: 'This user restricted messages',
+      account: 'Account',
+      notifications: 'Notifications',
+      privacy: 'Privacy',
+      dataMemory: 'Data and storage',
+      nova: 'Nova+',
+      novaSoon: 'Soon',
+      novaText: 'Nova+ is a subscription with extra features. For now it is a placeholder: you cannot subscribe yet.',
+      comingSoon: 'This section will appear in a future update.',
+      statusOnline: 'online',
+      statusRecent: 'last seen recently',
+      statusLong: 'last seen a long time ago',
+      statusAt: 'last seen at {v}',
+      statusDate: 'last seen {v}',
+      showLastSeen: 'Last seen',
+      lastSeenHint: 'If turned off, others will see "last seen recently" instead of the exact time.',
+      tabGifts: 'Gifts',
+      tabPosts: 'Posts',
+      write: 'Message',
+      addCollection: 'Add collection',
+      postsArchive: 'Posts archive',
+      giftsEmpty: 'No gifts yet',
+      postsEmpty: 'No posts yet',
+      newCollection: 'New collection',
+      collectionName: 'Name',
+      collectionHint: 'The collection is empty for now. Gifts will appear in a future update.',
+      collectionNeedTitle: 'Enter a collection name',
+      collectionCreated: 'Collection created',
+      collectionEmpty: 'Empty',
+      archive: 'Posts archive',
+      archiveText: 'Here will be the posts you hide. There are no posts yet.',
     },
   };
 
   function X(key) {
     const dict = XT[NC.getLang()] || XT.ru;
     return dict[key] !== undefined ? dict[key] : key;
+  }
+
+  function fillX(key, value) {
+    return X(key).split('{v}').join(String(value));
+  }
+
+  // Строка статуса собеседника: в сети, был(а) в 10:59, был(а) недавно или давно
+  function statusLine(status) {
+    if (!status) return '';
+    if (status.mode === 'online') return X('statusOnline');
+    if (status.mode === 'recent') return X('statusRecent');
+    if (status.mode === 'long') return X('statusLong');
+    if (NC.dayKey(status.at) === new Date().toDateString()) {
+      return fillX('statusAt', NC.formatTime(status.at));
+    }
+    return fillX('statusDate', NC.formatListDate(status.at));
   }
 
   const els = {
@@ -154,8 +292,16 @@
     backBtn: $('backBtn'),
     peerBtn: $('peerBtn'),
     chatSearchBtn: $('chatSearchBtn'),
+    pinnedBar: $('pinnedBar'),
+    pinnedOpen: $('pinnedOpen'),
+    pinnedText: $('pinnedText'),
+    pinnedUnpin: $('pinnedUnpin'),
     messages: $('messages'),
     toBottom: $('toBottom'),
+    replyBar: $('replyBar'),
+    replyName: $('replyName'),
+    replyText: $('replyText'),
+    replyClose: $('replyClose'),
     composer: $('composer'),
     messageInput: $('messageInput'),
     attachBtn: $('attachBtn'),
@@ -163,14 +309,33 @@
     readonlyNote: $('readonlyNote'),
     ctxMenu: $('ctxMenu'),
     ctxReactions: $('ctxReactions'),
+    ctxMore: $('ctxMore'),
+    ctxReply: $('ctxReply'),
     ctxCopy: $('ctxCopy'),
     ctxForward: $('ctxForward'),
+    ctxPin: $('ctxPin'),
+    ctxPinLabel: $('ctxPinLabel'),
     ctxDeleteMe: $('ctxDeleteMe'),
     ctxDeleteAll: $('ctxDeleteAll'),
+    chatCtxMenu: $('chatCtxMenu'),
+    chatCtxHide: $('chatCtxHide'),
+    chatCtxBlock: $('chatCtxBlock'),
+    chatCtxBlockLabel: $('chatCtxBlockLabel'),
+    chatCtxLeave: $('chatCtxLeave'),
     backdrop: $('backdrop'),
     toast: $('toast'),
     settingsSheet: $('settingsSheet'),
+    appearanceSheet: $('appearanceSheet'),
+    languageSheet: $('languageSheet'),
+    novaSheet: $('novaSheet'),
+    stubSheet: $('stubSheet'),
+    stubTitle: $('stubTitle'),
+    stubText: $('stubText'),
+    privacySheet: $('privacySheet'),
+    lastSeenToggle: $('lastSeenToggle'),
     profileSheet: $('profileSheet'),
+    collectionSheet: $('collectionSheet'),
+    archiveSheet: $('archiveSheet'),
     newChatSheet: $('newChatSheet'),
     forwardSheet: $('forwardSheet'),
     groupSheet: $('groupSheet'),
@@ -187,10 +352,21 @@
     profileName: $('profileName'),
     profileUsername: $('profileUsername'),
     profileBadge: $('profileBadge'),
+    profileActions: $('profileActions'),
+    profileWrite: $('profileWrite'),
     profileBio: $('profileBio'),
     profileForm: $('profileForm'),
     editName: $('editName'),
     editBio: $('editBio'),
+    tabGifts: $('tabGifts'),
+    tabPosts: $('tabPosts'),
+    tabAction: $('tabAction'),
+    panelGifts: $('panelGifts'),
+    panelPosts: $('panelPosts'),
+    collectionList: $('collectionList'),
+    giftsEmpty: $('giftsEmpty'),
+    collectionTitle: $('collectionTitle'),
+    collectionCreate: $('collectionCreate'),
     createGroupBtn: $('createGroupBtn'),
     userSearch: $('userSearch'),
     userResults: $('userResults'),
@@ -220,7 +396,14 @@
 
   const SHEETS = {
     settings: els.settingsSheet,
+    appearance: els.appearanceSheet,
+    language: els.languageSheet,
+    nova: els.novaSheet,
+    stub: els.stubSheet,
+    privacy: els.privacySheet,
     profile: els.profileSheet,
+    collection: els.collectionSheet,
+    archive: els.archiveSheet,
     newChat: els.newChatSheet,
     forward: els.forwardSheet,
     group: els.groupSheet,
@@ -229,6 +412,7 @@
   };
 
   const fineInput = window.matchMedia('(pointer: fine)').matches;
+
   const state = {
     me: null,
     loaded: false,
@@ -237,6 +421,8 @@
     currentChatId: null,
     currentGroup: false,
     currentRole: null,
+    meta: null,
+    replyTo: null,
     messages: [],
     oldestId: null,
     hasMore: false,
@@ -250,21 +436,25 @@
     profileUser: null,
     profileEditable: false,
     profileOrigin: null,
+    profileTab: 'gifts',
     groupCardId: null,
     groupFull: null,
     groupResults: new Map(),
+    userResultMap: new Map(),
     socket: null,
     refreshTimer: null,
     toastTimer: null,
     ctxMessage: null,
+    ctxChatId: null,
     forwardMessageId: null,
     fileCache: new Map(),
     usernameSeq: 0,
   };
 
   let pressTimer = null;
+  let chatPressTimer = null;
+  let suppressChatClick = false;
 
-  // Обёртки вызывают функции только при событии, поэтому порядок объявлений не важен
   const searchUsers = NC.debounce(() => runUserSearch(), 300);
   const runChatSearch = NC.debounce(() => doChatSearch(), 300);
   const checkGroupUsername = NC.debounce(() => checkGroupUsernameNow(), 350);
@@ -307,7 +497,6 @@
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
-  // Спиннер в стиле iOS: 12 штрихов с разной прозрачностью
   function spinnerHtml() {
     let html = '<span class="spinner" aria-hidden="true">';
     for (let k = 0; k < 12; k++) {
@@ -331,6 +520,13 @@
     return n + ' ' + word;
   }
 
+  // Текст с кликабельными упоминаниями @username (сначала экранирование, потом разметка)
+  function richText(text) {
+    return NC.esc(text).replace(/@([A-Za-z0-9_]{5,32})/g, function (m, name) {
+      return '<a class="mention" href="#" data-mention="' + name.toLowerCase() + '">@' + name + '</a>';
+    });
+  }
+
   function currentChat() {
     return state.chats.find((c) => c.id === state.currentChatId) || null;
   }
@@ -342,6 +538,17 @@
   function canDeleteAll(msg) {
     if (msg.senderId === state.me.id) return true;
     return state.currentGroup && (state.currentRole === 'owner' || state.currentRole === 'admin');
+  }
+
+  function canPinHere() {
+    return Boolean(state.meta && state.meta.canPin);
+  }
+
+  function previewOf(m) {
+    if (!m) return '';
+    if (m.deleted) return X('deleted');
+    if (m.file && !m.text) return X('file');
+    return m.text || '';
   }
 
   function openSheet(name) {
@@ -360,10 +567,26 @@
     els.backdrop.classList.remove('open');
   }
 
+  function closeMenus() {
+    els.ctxMenu.classList.remove('open');
+    els.chatCtxMenu.classList.remove('open');
+    state.ctxMessage = null;
+    state.ctxChatId = null;
+  }
+
+  function placeMenu(menu, x, y) {
+    menu.classList.add('open');
+    const w = menu.offsetWidth;
+    const h = menu.offsetHeight;
+    menu.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + 'px';
+    menu.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + 'px';
+  }
+
   function scheduleListRefresh() {
     clearTimeout(state.refreshTimer);
     state.refreshTimer = setTimeout(() => loadChats(true), 250);
   }
+
   function forceLogout(notice) {
     if (notice) sessionStorage.setItem(NOTICE_KEY, JSON.stringify(notice));
     NC.clearToken();
@@ -416,12 +639,12 @@
       'style="animation-delay:' + delay + 'ms">' +
       NC.avatarHtml(p, 'avatar-md') +
       '<div class="chat-meta">' +
-      '<div class="chat-row"><span class="chat-name">' + nameHtml + '</span>' +
-      '<span class="chat-time">' + NC.esc(time) + '</span></div>' +
-      '<div class="chat-row">' + tick +
-      '<span class="chat-preview">' + NC.esc(prefix + preview) + '</span>' + badge + '</div>' +
+        '<div class="chat-row"><span class="chat-name">' + nameHtml + '</span>' +
+          '<span class="chat-time">' + NC.esc(time) + '</span></div>' +
+        '<div class="chat-row">' + tick +
+          '<span class="chat-preview">' + NC.esc(prefix + preview) + '</span>' + badge + '</div>' +
       '</div>' +
-      '</li>';
+    '</li>';
   }
 
   function renderChatList() {
@@ -436,7 +659,6 @@
     state.chats.forEach((c) => state.knownChats.add(c.id));
   }
 
-  // Перерисовка с плавным перемещением чатов, которые сменили позицию
   function renderChatListAnimated() {
     const before = new Map();
     els.chatList.querySelectorAll('.chat-item').forEach((el) => {
@@ -495,28 +717,95 @@
     }
   }
 
-  // ----- Шапка и открытие чата -----
+  // ----- Шапка, состояние поля ввода, закрепление, ответ -----
 
   function renderChatHeader(chat) {
     const p = chat.peer;
     const isGroup = chat.kind === 'group';
-    const sub = isGroup
-      ? membersText(chat.memberCount)
-      : (p.isSystem ? NC.t('systemAccount') : '@' + p.username);
+    const status = state.meta && state.meta.peerStatus ? state.meta.peerStatus : p.status;
+    let sub = '';
+    if (isGroup) sub = membersText(chat.memberCount);
+    else if (p.isSystem) sub = NC.t('systemAccount');
+    else sub = statusLine(status);
     els.peerBtn.innerHTML = NC.avatarHtml(p, 'avatar-sm') +
       '<span class="peer-info"><span class="peer-name">' + NC.esc(p.displayName) +
       (p.isVerified ? NC.verifiedHtml() : '') + '</span>' +
       '<span class="peer-sub">' + NC.esc(sub) + '</span></span>';
-    const blocked = Boolean(p.isSystem) || !chat.canPost;
-    els.composer.hidden = blocked;
-    els.readonlyNote.hidden = !blocked;
-    els.readonlyNote.textContent = p.isSystem ? NC.t('readonlyChat') : X('readonlyGroup');
+    updateComposerState();
+  }
+
+  function updateComposerState() {
+    const chat = currentChat();
+    if (!chat) return;
+    const blocked = state.meta ? state.meta.blocked : (chat.blocked || { byMe: false, byPeer: false });
+    let canPost = chat.canPost;
+    let note = '';
+    if (chat.kind === 'direct') {
+      if (chat.peer.isSystem) {
+        canPost = false;
+        note = NC.t('readonlyChat');
+      } else if (blocked.byMe) {
+        canPost = false;
+        note = X('blockedByMe');
+      } else if (blocked.byPeer) {
+        canPost = false;
+        note = X('blockedByPeer');
+      }
+    } else if (!canPost) {
+      note = X('readonlyGroup');
+    }
+    els.composer.hidden = !canPost;
+    els.readonlyNote.hidden = canPost;
+    els.readonlyNote.textContent = note;
+  }
+
+  function renderPinned() {
+    const p = state.meta && state.meta.pinned;
+    if (!p) {
+      els.pinnedBar.hidden = true;
+      return;
+    }
+    els.pinnedBar.hidden = false;
+    els.pinnedText.textContent = p.text || (p.hasFile ? X('file') : '');
+    els.pinnedUnpin.hidden = !canPinHere();
+  }
+
+  function renderReplyBar() {
+    const m = state.replyTo;
+    if (!m) {
+      els.replyBar.hidden = true;
+      return;
+    }
+    els.replyBar.hidden = false;
+    els.replyName.textContent = m.senderId === state.me.id ? X('you') : (m.senderName || m.senderUsername);
+    els.replyText.textContent = previewOf(m);
+  }
+
+  function applyMeta(meta) {
+    if (!meta) return;
+    state.meta = meta;
+    renderPinned();
+    const chat = currentChat();
+    if (chat) renderChatHeader(chat);
+  }
+
+  async function refreshMeta() {
+    const chatId = state.currentChatId;
+    if (!chatId) return;
+    try {
+      const { meta } = await NC.api('GET', '/api/chats/' + chatId + '/messages?limit=1');
+      if (state.currentChatId === chatId) applyMeta(meta);
+    } catch (err) {
+      // Не критично: состояние обновится при следующем событии
+    }
   }
 
   function prepareChat(chat) {
     state.currentChatId = chat.id;
     state.currentGroup = chat.kind === 'group';
     state.currentRole = chat.myRole;
+    state.meta = null;
+    state.replyTo = null;
     state.messages = [];
     state.oldestId = null;
     state.hasMore = false;
@@ -526,6 +815,8 @@
     state.loadingAll = false;
     els.messageInput.value = '';
     autoGrow();
+    renderReplyBar();
+    renderPinned();
     renderChatHeader(chat);
     els.messages.innerHTML = '<div class="chat-hint">' + spinnerHtml() + '</div>';
     els.app.classList.add('chat-open');
@@ -548,6 +839,7 @@
     try {
       const data = await NC.api('GET', '/api/chats/' + chatId + '/messages?limit=' + PAGE);
       if (state.currentChatId !== chatId) return;
+      applyMeta(data.meta);
       state.messages = data.messages;
       state.hasMore = Boolean(data.hasMore);
       state.hasNewer = false;
@@ -574,7 +866,6 @@
     }
   }
 
-  // Открывает окно сообщений вокруг найденного сообщения
   async function openAround(messageId) {
     const chatId = state.currentChatId;
     const chat = currentChat();
@@ -583,18 +874,13 @@
     try {
       const data = await NC.api('GET', '/api/chats/' + chatId + '/messages?limit=' + AROUND + '&around=' + messageId);
       if (state.currentChatId !== chatId) return;
+      applyMeta(data.meta);
       state.messages = data.messages;
       state.hasMore = Boolean(data.hasOlder);
       state.hasNewer = Boolean(data.hasNewer);
       state.oldestId = data.messages.length ? data.messages[0].id : null;
       renderMessages();
-      const box = els.messages;
-      const el = box.querySelector('[data-id="' + messageId + '"]');
-      if (el) {
-        box.scrollTop = el.offsetTop - (box.clientHeight - el.offsetHeight) / 2;
-        el.classList.add('flash');
-        setTimeout(() => el.classList.remove('flash'), 1500);
-      }
+      highlightMessage(messageId, true);
       updateToBottom();
     } catch (err) {
       if (state.currentChatId === chatId) {
@@ -603,11 +889,34 @@
     }
   }
 
+  function highlightMessage(id, instant) {
+    const el = els.messages.querySelector('[data-id="' + id + '"]');
+    if (!el) return;
+    if (instant) {
+      const box = els.messages;
+      box.scrollTop = el.offsetTop - (box.clientHeight - el.offsetHeight) / 2;
+    } else {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1500);
+  }
+
+  function scrollToMessage(id) {
+    if (els.messages.querySelector('[data-id="' + id + '"]')) {
+      highlightMessage(id, false);
+    } else {
+      openAround(id);
+    }
+  }
+
   function closeChat() {
-    closeContextMenu();
+    closeMenus();
     state.currentChatId = null;
     state.currentGroup = false;
     state.currentRole = null;
+    state.meta = null;
+    state.replyTo = null;
     state.messages = [];
     els.app.classList.remove('chat-open');
     renderChatList();
@@ -625,6 +934,14 @@
       '<span class="file-card-size">' + formatSize(f.size) + '</span></span></button>';
   }
 
+  function quoteHtml(rt) {
+    if (!rt) return '';
+    const text = rt.deleted ? X('deleted') : (rt.text || (rt.hasFile ? X('file') : ''));
+    return '<span class="quote" data-scroll="' + rt.id + '">' +
+      '<span class="quote-name">' + NC.esc(rt.senderName || '') + '</span>' +
+      '<span class="quote-text">' + NC.esc(text) + '</span></span>';
+  }
+
   function reactionsHtml(m) {
     if (!m.reactions || !m.reactions.length) return '';
     return '<div class="reactions">' + m.reactions.map((r) =>
@@ -634,7 +951,7 @@
   }
 
   function tickHtml(m) {
-    if (m.deleted || m.senderId !== state.me.id || state.currentGroup) return '';
+    if (m.senderId !== state.me.id || state.currentGroup) return '';
     return '<span class="ticks ' + (m.read ? 'read' : 'sent') + '">' +
       NC.icon(m.read ? 'checks' : 'check', 14) + '</span>';
   }
@@ -646,31 +963,27 @@
   function messageHtml(m, animate) {
     const mine = m.senderId === state.me.id;
     const classes = ['msg', mine ? 'mine' : 'theirs'];
-    if (m.deleted) classes.push('deleted');
     if (animate) classes.push('enter');
 
     let body = '';
-    if (m.deleted) {
-      body = '<span class="msg-text">' + NC.esc(X('deleted')) + '</span>';
-    } else {
-      if (state.currentGroup && !mine) {
-        body += '<span class="msg-sender">' + NC.esc(m.senderName || m.senderUsername) + '</span>';
-      }
-      if (m.forwardedFrom) {
-        body += '<span class="forwarded">' + NC.esc(X('forwardedFrom')) + ' ' +
-          NC.esc(m.forwardedFrom.displayName) + '</span>';
-      }
-      if (m.file) body += fileHtml(m.file);
-      if (m.text) body += '<span class="msg-text">' + NC.esc(m.text) + '</span>';
+    if (state.currentGroup && !mine) {
+      body += '<span class="msg-sender">' + NC.esc(m.senderName || m.senderUsername) + '</span>';
     }
+    if (m.forwardedFrom) {
+      body += '<span class="forwarded">' + NC.esc(X('forwardedFrom')) + ' ' +
+        NC.esc(m.forwardedFrom.displayName) + '</span>';
+    }
+    body += quoteHtml(m.replyTo);
+    if (m.file) body += fileHtml(m.file);
+    if (m.text) body += '<span class="msg-text">' + richText(m.text) + '</span>';
 
     return '<div class="' + classes.join(' ') + '" data-id="' + m.id + '"><div class="msg-col">' +
       '<div class="bubble">' + body +
-      '<span class="msg-meta"><span class="msg-time">' + NC.formatTime(m.createdAt) + '</span>' +
-      tickHtml(m) + '</span>' +
+        '<span class="msg-meta"><span class="msg-time">' + NC.formatTime(m.createdAt) + '</span>' +
+        tickHtml(m) + '</span>' +
       '</div>' +
-      (m.deleted ? '' : reactionsHtml(m)) +
-      '</div></div>';
+      reactionsHtml(m) +
+    '</div></div>';
   }
 
   function renderMessages() {
@@ -738,8 +1051,9 @@
   }
 
   function removeMessageLocal(id) {
+    const before = state.messages.length;
     state.messages = state.messages.filter((m) => m.id !== id);
-    rerenderMessages();
+    if (state.messages.length !== before) rerenderMessages();
   }
 
   function prependMessages(list, hasMore) {
@@ -756,7 +1070,7 @@
   }
 
   function onMessagesScroll() {
-    closeContextMenu();
+    closeMenus();
     const box = els.messages;
     if (box.scrollTop < 80 && state.hasMore) loadOlder();
     const dist = box.scrollHeight - box.scrollTop - box.clientHeight;
@@ -785,7 +1099,6 @@
     }
   }
 
-  // Загружает всю историю чата страница за страницей
   async function loadAll() {
     if (state.loadingAll || state.loadingOlder || !state.hasMore || state.oldestId == null || !state.currentChatId) return;
     const chatId = state.currentChatId;
@@ -817,7 +1130,6 @@
     }
   }
 
-  // Подгрузка сообщений ниже, когда открыто окно из поиска
   async function loadNewer() {
     const chatId = state.currentChatId;
     const after = newestId();
@@ -847,6 +1159,7 @@
     try {
       const data = await NC.api('GET', '/api/chats/' + chatId + '/messages?limit=' + PAGE);
       if (state.currentChatId !== chatId) return;
+      applyMeta(data.meta);
       data.messages.forEach((m) => appendMessage(m));
     } catch (err) {
       // При следующем сообщении всё догрузится
@@ -880,7 +1193,7 @@
     root.querySelectorAll('img.msg-img[data-file-id]:not([src])').forEach((img) => {
       fileUrl(Number(img.dataset.fileId))
         .then((url) => { img.src = url; })
-        .catch(() => { });
+        .catch(() => {});
     });
   }
 
@@ -928,7 +1241,9 @@
     const chatId = state.currentChatId;
     if (!file || !chatId) return;
     if (file.size > MAX_FILE) return toast(X('tooBig'));
+
     const caption = els.messageInput.value.trim();
+    const replyId = state.replyTo ? state.replyTo.id : undefined;
     els.attachBtn.disabled = true;
     toast(X('uploading'));
     try {
@@ -937,9 +1252,12 @@
       const { message } = await NC.api('POST', '/api/chats/' + chatId + '/messages', {
         text: caption,
         fileId: uploaded.id,
+        replyToId: replyId,
       });
       if (state.currentChatId === chatId) {
         els.messageInput.value = '';
+        state.replyTo = null;
+        renderReplyBar();
         autoGrow();
       }
       appendMessage(message);
@@ -973,12 +1291,20 @@
     if (!chatId || !text || state.sending) return;
     if (text.length > 4000) return toast(NC.t('messageMax'));
 
+    const replyId = state.replyTo ? state.replyTo.id : undefined;
     state.sending = true;
     els.messageInput.value = '';
     autoGrow();
     try {
       if (state.hasNewer) await fetchLatest(chatId);
-      const { message } = await NC.api('POST', '/api/chats/' + chatId + '/messages', { text: text });
+      const { message } = await NC.api('POST', '/api/chats/' + chatId + '/messages', {
+        text: text,
+        replyToId: replyId,
+      });
+      if (state.currentChatId === chatId) {
+        state.replyTo = null;
+        renderReplyBar();
+      }
       appendMessage(message);
       scheduleListRefresh();
     } catch (err) {
@@ -986,7 +1312,7 @@
         els.messageInput.value = text;
         autoGrow();
       }
-      toast(err instanceof NC.ApiError && err.status !== 0 ? errorText(err) : NC.t('errNetwork'));
+      toast(errorText(err));
     } finally {
       state.sending = false;
     }
@@ -1024,27 +1350,32 @@
     scheduleListRefresh();
   }
 
-  // ----- Контекстное меню сообщения -----
+  // ----- Меню сообщения -----
+
+  function buildReactionBar() {
+    const quick = REACTIONS.slice(0, QUICK_COUNT).map((e) =>
+      '<button class="ctx-react" type="button" data-emoji="' + e + '">' + e + '</button>'
+    ).join('');
+    els.ctxReactions.innerHTML = quick +
+      '<button class="ctx-react ctx-more-btn" type="button" data-more="1" aria-label="More">' + xIcon('plus', 16) + '</button>';
+    els.ctxMore.innerHTML = REACTIONS.slice(QUICK_COUNT).map((e) =>
+      '<button class="ctx-react" type="button" data-emoji="' + e + '">' + e + '</button>'
+    ).join('');
+    els.ctxMore.hidden = true;
+  }
 
   function openContextMenu(messageId, x, y) {
     const msg = state.messages.find((m) => m.id === messageId);
-    if (!msg || msg.deleted) return;
+    if (!msg) return;
+    closeMenus();
     state.ctxMessage = msg;
-    els.ctxReactions.innerHTML = REACTIONS.map((emoji) =>
-      '<button class="ctx-react" type="button" data-emoji="' + emoji + '">' + emoji + '</button>'
-    ).join('');
+    buildReactionBar();
     els.ctxCopy.hidden = !msg.text;
     els.ctxDeleteAll.hidden = !canDeleteAll(msg);
-    els.ctxMenu.classList.add('open');
-    const w = els.ctxMenu.offsetWidth;
-    const h = els.ctxMenu.offsetHeight;
-    els.ctxMenu.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + 'px';
-    els.ctxMenu.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + 'px';
-  }
-
-  function closeContextMenu() {
-    els.ctxMenu.classList.remove('open');
-    state.ctxMessage = null;
+    const pinned = state.meta && state.meta.pinned && state.meta.pinned.id === msg.id;
+    els.ctxPin.hidden = !canPinHere();
+    els.ctxPinLabel.textContent = pinned ? X('unpin') : X('pin');
+    placeMenu(els.ctxMenu, x, y);
   }
 
   async function copyText(text) {
@@ -1065,17 +1396,41 @@
 
   async function deleteFromMenu(scope) {
     const msg = state.ctxMessage;
-    closeContextMenu();
+    closeMenus();
     if (!msg) return;
     if (scope === 'all' && !window.confirm(X('confirmAll'))) return;
     try {
       await NC.api('DELETE', '/api/chats/' + msg.chatId + '/messages/' + msg.id + '?scope=' + scope);
-      if (scope === 'me') {
-        removeMessageLocal(msg.id);
-      } else {
-        replaceMessage(Object.assign({}, msg, { deleted: true, text: '', file: null, reactions: [] }));
-      }
+      removeMessageLocal(msg.id);
       scheduleListRefresh();
+      if (scope === 'all') refreshMeta();
+    } catch (err) {
+      toast(errorText(err));
+    }
+  }
+
+  function startReply() {
+    const msg = state.ctxMessage;
+    closeMenus();
+    if (!msg) return;
+    state.replyTo = msg;
+    renderReplyBar();
+    if (fineInput) els.messageInput.focus();
+  }
+
+  async function togglePinFromMenu() {
+    const msg = state.ctxMessage;
+    const chatId = state.currentChatId;
+    closeMenus();
+    if (!msg || !chatId) return;
+    const pinned = state.meta && state.meta.pinned && state.meta.pinned.id === msg.id;
+    try {
+      if (pinned) {
+        await NC.api('DELETE', '/api/chats/' + chatId + '/pin');
+      } else {
+        await NC.api('POST', '/api/chats/' + chatId + '/pin/' + msg.id);
+      }
+      refreshMeta();
     } catch (err) {
       toast(errorText(err));
     }
@@ -1095,6 +1450,52 @@
     els.forwardHint.hidden = chats.length > 0;
     els.forwardHint.textContent = X('noForwardChats');
     openSheet('forward');
+  }
+
+  // ----- Меню чата в списке -----
+
+  function openChatContext(chatId, x, y) {
+    const chat = state.chats.find((c) => c.id === chatId);
+    if (!chat) return;
+    closeMenus();
+    state.ctxChatId = chatId;
+    const direct = chat.kind === 'direct';
+    const blockedByMe = Boolean(chat.blocked && chat.blocked.byMe);
+    els.chatCtxHide.hidden = !direct;
+    els.chatCtxBlock.hidden = !direct || Boolean(chat.peer.isSystem);
+    els.chatCtxBlockLabel.textContent = blockedByMe ? X('unblock') : X('block');
+    els.chatCtxLeave.hidden = direct;
+    placeMenu(els.chatCtxMenu, x, y);
+  }
+
+  async function chatCtxAction(kind) {
+    const chatId = state.ctxChatId;
+    closeMenus();
+    if (!chatId) return;
+    try {
+      if (kind === 'hide') {
+        if (!window.confirm(X('confirmHideChat'))) return;
+        await NC.api('POST', '/api/chats/' + chatId + '/hide');
+        if (state.currentChatId === chatId) closeChat();
+        toast(X('chatHidden'));
+      } else if (kind === 'block') {
+        if (!window.confirm(X('confirmBlock'))) return;
+        await NC.api('POST', '/api/chats/' + chatId + '/block');
+        toast(X('blockedDone'));
+      } else if (kind === 'unblock') {
+        await NC.api('DELETE', '/api/chats/' + chatId + '/block');
+        toast(X('unblockedDone'));
+      } else if (kind === 'leave') {
+        if (!window.confirm(X('confirmLeave'))) return;
+        await NC.api('POST', '/api/chats/' + chatId + '/leave');
+        if (state.currentChatId === chatId) closeChat();
+        toast(X('left'));
+      }
+      await loadChats(true);
+      if (state.currentChatId === chatId) refreshMeta();
+    } catch (err) {
+      toast(errorText(err));
+    }
   }
 
   // ----- Поиск в чате -----
@@ -1129,7 +1530,7 @@
     }
   }
 
-  // ----- Профиль, настройки, фото, жалобы -----
+  // ----- Настройки -----
 
   function renderSettings() {
     const me = state.me;
@@ -1139,14 +1540,59 @@
       '<button class="avatar-edit" type="button" data-photo="1" aria-label="' + NC.esc(X('changePhoto')) + '">' +
       NC.icon('camera', 15) + '</button></span>' +
       '<button class="profile-card-main" type="button">' +
-      '<span class="profile-card-text"><span class="profile-card-name">' + NC.esc(me.displayName) +
-      (me.isVerified ? NC.verifiedHtml() : '') + '</span>' +
-      '<span class="profile-card-sub">@' + NC.esc(me.username) + '</span></span>' +
-      '<span class="chev">' + NC.icon('chevron', 18) + '</span>' +
+        '<span class="profile-card-text"><span class="profile-card-name">' + NC.esc(me.displayName) +
+        (me.isVerified ? NC.verifiedHtml() : '') + '</span>' +
+        '<span class="profile-card-sub">@' + NC.esc(me.username) + '</span></span>' +
+        '<span class="chev">' + NC.icon('chevron', 18) + '</span>' +
       '</button>';
     NC.setSegValue(els.themeSeg, NC.getThemePref());
     NC.setSegValue(els.langSeg, NC.getLang());
   }
+
+  function showStub(titleKey) {
+    els.stubTitle.textContent = X(titleKey);
+    els.stubText.textContent = X('comingSoon');
+    openSheet('stub');
+  }
+
+  function openPrivacy() {
+    els.lastSeenToggle.checked = !state.me || state.me.showLastSeen !== false;
+    openSheet('privacy');
+  }
+
+  async function onLastSeenToggle() {
+    const value = els.lastSeenToggle.checked;
+    const previous = !value;
+    state.me.showLastSeen = value;
+    try {
+      await NC.api('PATCH', '/api/users/me', { showLastSeen: value });
+      toast(NC.t('saved'));
+      if (state.currentChatId) refreshMeta();
+    } catch (err) {
+      els.lastSeenToggle.checked = previous;
+      state.me.showLastSeen = previous;
+      toast(errorText(err));
+    }
+  }
+
+  function onSettingsRowClick(e) {
+    const row = e.target.closest('[data-go]');
+    if (!row) return;
+    const go = row.dataset.go;
+    if (go === 'account') openProfile(state.me, true, 'settings');
+    else if (go === 'appearance') {
+      NC.setSegValue(els.themeSeg, NC.getThemePref());
+      openSheet('appearance');
+    } else if (go === 'language') {
+      NC.setSegValue(els.langSeg, NC.getLang());
+      openSheet('language');
+    } else if (go === 'nova') openSheet('nova');
+    else if (go === 'notifications') showStub('notifications');
+    else if (go === 'privacy') openPrivacy();
+    else if (go === 'data') showStub('dataMemory');
+  }
+
+  // ----- Профиль -----
 
   function renderProfile(user, editable) {
     state.profileUser = user;
@@ -1155,9 +1601,13 @@
     els.avatarEdit.hidden = !editable;
     els.profileName.innerHTML = NC.esc(user.displayName) + (user.isVerified ? NC.verifiedHtml() : '');
     els.profileUsername.textContent = '@' + user.username;
+
     const badge = user.isSystem ? NC.t('systemAccount') : (user.isVerified ? NC.t('verified') : '');
     els.profileBadge.textContent = badge;
     els.profileBadge.hidden = !badge;
+
+    // «Написать» не нужна в своём профиле, у NovaChat и в открытом из самого чата
+    els.profileActions.hidden = editable || Boolean(user.isSystem) || state.profileOrigin === 'chat';
 
     els.profileForm.hidden = !editable;
     els.profileBio.hidden = editable;
@@ -1167,17 +1617,81 @@
     if (editable) {
       els.editName.value = user.displayName;
       els.editBio.value = user.bio || '';
+    } else if (user.bio === undefined) {
+      els.profileBio.textContent = '…';
+    } else if (user.bio) {
+      els.profileBio.innerHTML = richText(user.bio);
     } else {
-      els.profileBio.textContent = user.bio === undefined ? '…' : (user.bio || NC.t('noBio'));
+      els.profileBio.textContent = NC.t('noBio');
+    }
+  }
+
+  // Вкладки профиля: «Подарки» и «Публикации», у своего профиля справа кнопка действия
+  function setProfileTab(tab) {
+    state.profileTab = tab;
+    els.tabGifts.classList.toggle('active', tab === 'gifts');
+    els.tabPosts.classList.toggle('active', tab === 'posts');
+    els.panelGifts.hidden = tab !== 'gifts';
+    els.panelPosts.hidden = tab !== 'posts';
+    renderTabAction();
+  }
+
+  function renderTabAction() {
+    const own = state.profileEditable;
+    els.tabAction.hidden = !own;
+    if (!own) return;
+    els.tabAction.textContent = state.profileTab === 'gifts' ? X('addCollection') : X('postsArchive');
+  }
+
+  function renderCollections(list) {
+    els.collectionList.innerHTML = list.map((c) =>
+      '<li class="collection-item">' +
+        '<span class="collection-icon">' + xIcon('gift', 20) + '</span>' +
+        '<span class="collection-meta">' +
+          '<span class="collection-name">' + NC.esc(c.title) + '</span>' +
+          '<span class="collection-sub">' + NC.esc(X('collectionEmpty')) + '</span>' +
+        '</span>' +
+      '</li>'
+    ).join('');
+    els.giftsEmpty.hidden = list.length > 0;
+  }
+
+  async function loadCollections(username) {
+    try {
+      const data = await NC.api('GET', '/api/gifts/collections/' + encodeURIComponent(username));
+      if (state.profileUser && state.profileUser.username === username) {
+        renderCollections(data.collections);
+      }
+    } catch (err) {
+      if (state.profileUser && state.profileUser.username === username) renderCollections([]);
+      toast(errorText(err));
+    }
+  }
+
+  async function createCollection() {
+    const title = els.collectionTitle.value.trim();
+    if (!title || title.length > 32) return toast(X('collectionNeedTitle'));
+    try {
+      await NC.api('POST', '/api/gifts/collections', { title: title });
+      els.collectionTitle.value = '';
+      openSheet('profile');
+      toast(X('collectionCreated'));
+      if (state.profileUser) loadCollections(state.profileUser.username);
+    } catch (err) {
+      toast(errorText(err));
     }
   }
 
   async function openProfile(user, editable, origin) {
     state.profileOrigin = origin || null;
-    els.profileBack.classList.toggle('invisible', !origin);
+    els.profileBack.classList.toggle('invisible', !BACK_TARGETS[state.profileOrigin]);
     renderProfile(user, editable);
+    setProfileTab('gifts');
+    renderCollections([]);
     openSheet('profile');
-    if (editable || !user.username) return;
+    if (!user.username) return;
+    loadCollections(user.username);
+    if (editable) return;
     try {
       const { user: full } = await NC.api('GET', '/api/users/' + encodeURIComponent(user.username));
       const stillOpen = state.openSheet === 'profile' &&
@@ -1188,7 +1702,12 @@
     }
   }
 
-  // Блок жалобы в профиле собеседника
+  function openProfileByUsername(username) {
+    NC.api('GET', '/api/users/' + encodeURIComponent(username))
+      .then((data) => openProfile(data.user, false, null))
+      .catch((err) => toast(errorText(err)));
+  }
+
   function ensureReportUi() {
     const body = els.profileSheet.querySelector('.sheet-body');
     const wrap = document.createElement('div');
@@ -1198,10 +1717,10 @@
     wrap.innerHTML =
       '<button id="reportToggle" class="report-toggle" type="button" data-x="report"></button>' +
       '<div id="reportBox" class="reveal">' +
-      '<div class="reveal-inner report-inner">' +
-      '<textarea id="reportText" class="field textarea" rows="3" maxlength="500" data-x-placeholder="reportPlaceholder"></textarea>' +
-      '<button id="reportSend" class="btn btn-danger" type="button" data-x="reportSend"></button>' +
-      '</div>' +
+        '<div class="reveal-inner report-inner">' +
+          '<textarea id="reportText" class="field textarea" rows="3" maxlength="500" data-x-placeholder="reportPlaceholder"></textarea>' +
+          '<button id="reportSend" class="btn btn-danger" type="button" data-x="reportSend"></button>' +
+        '</div>' +
       '</div>';
     body.appendChild(wrap);
 
@@ -1258,7 +1777,6 @@
   async function uploadAvatar(file) {
     if (file.size > MAX_PHOTO) return toast(X('photoTooBig'));
     if (!IMAGE_RE.test(file.type)) return toast(X('photoWrong'));
-
     try {
       const res = await fetch('/api/files/avatar', {
         method: 'POST',
@@ -1301,6 +1819,7 @@
 
   function renderUserResults(users, groups) {
     state.groupResults = new Map(groups.map((g) => [g.id, g]));
+    state.userResultMap = new Map(users.map((u) => [u.username, u]));
     const groupHtml = groups.map((g) =>
       '<li><button class="user-item" type="button" data-group-id="' + g.id + '">' +
       NC.avatarHtml({ displayName: g.title, username: g.username }, 'avatar-md') +
@@ -1442,12 +1961,12 @@
     return '<li class="member-row" data-id="' + m.id + '">' +
       NC.avatarHtml(m, 'avatar-md') +
       '<div class="chat-meta">' +
-      '<div class="chat-name"><span class="truncate">' + NC.esc(m.displayName) + '</span>' +
-      (m.isVerified ? NC.verifiedHtml() : '') + roleTag + selfTag + '</div>' +
-      '<div class="chat-preview">@' + NC.esc(m.username) + '</div>' +
-      (actions ? '<div class="row-actions">' + actions + '</div>' : '') +
+        '<div class="chat-name"><span class="truncate">' + NC.esc(m.displayName) + '</span>' +
+        (m.isVerified ? NC.verifiedHtml() : '') + roleTag + selfTag + '</div>' +
+        '<div class="chat-preview">@' + NC.esc(m.username) + '</div>' +
+        (actions ? '<div class="row-actions">' + actions + '</div>' : '') +
       '</div>' +
-      '</li>';
+    '</li>';
   }
 
   function renderGroupInfo(g) {
@@ -1464,6 +1983,7 @@
     els.groupDeleteBtn.hidden = g.myRole !== 'owner';
     els.groupMembers.innerHTML = g.members.map((m) => memberHtml(m, g)).join('');
   }
+
   async function refreshGroupInfo(chatId) {
     try {
       const { group } = await NC.api('GET', '/api/chats/' + chatId);
@@ -1486,7 +2006,6 @@
     }
   }
 
-  // Превью группы из поиска: для тех, кто ещё не вступил
   function openGroupPreview(card) {
     if (!card) return;
     if (card.isMember) return openGroupInfo(card.id);
@@ -1537,7 +2056,13 @@
       scheduleListRefresh();
     });
     socket.on('chat:read', applyRead);
-    socket.on('chats:changed', () => scheduleListRefresh());
+    socket.on('chat:meta', (data) => {
+      if (data && data.chatId === state.currentChatId) refreshMeta();
+    });
+    socket.on('chats:changed', () => {
+      scheduleListRefresh();
+      if (state.currentChatId) refreshMeta();
+    });
   }
 
   // ----- Подписи и язык -----
@@ -1549,6 +2074,9 @@
     document.querySelectorAll('[data-x-placeholder]').forEach((n) => {
       n.placeholder = X(n.dataset.xPlaceholder);
     });
+    document.querySelectorAll('[data-xicon]').forEach((n) => {
+      n.innerHTML = xIcon(n.dataset.xicon, Number(n.dataset.iconSize) || 22);
+    });
   }
 
   function onLangChange() {
@@ -1558,6 +2086,8 @@
     renderChatList();
     const chat = currentChat();
     if (chat) renderChatHeader(chat);
+    renderPinned();
+    renderTabAction();
     if (state.messages.length) rerenderMessages();
     if (state.openSheet === 'profile' && state.profileUser && !state.profileEditable) {
       renderProfile(state.profileUser, false);
@@ -1585,18 +2115,60 @@
     });
     els.backdrop.addEventListener('click', closeSheet);
     document.querySelectorAll('[data-close]').forEach((btn) => btn.addEventListener('click', closeSheet));
+    document.querySelectorAll('[data-back]').forEach((btn) => {
+      btn.addEventListener('click', () => openSheet(btn.dataset.back));
+    });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeSheet();
-        closeContextMenu();
+        closeMenus();
       }
     });
     document.addEventListener('pointerdown', (e) => {
-      if (!els.ctxMenu.contains(e.target)) closeContextMenu();
+      if (!e.target.closest('.ctx-menu')) closeMenus();
+    });
+
+    els.settingsSheet.querySelector('.sheet-body').addEventListener('click', onSettingsRowClick);
+    els.lastSeenToggle.addEventListener('change', onLastSeenToggle);
+    els.profileCard.addEventListener('click', (e) => {
+      if (e.target.closest('[data-photo]')) els.avatarInput.click();
+      else if (e.target.closest('.profile-card-main')) openProfile(state.me, true, 'settings');
+    });
+    els.avatarEdit.addEventListener('click', () => els.avatarInput.click());
+    els.avatarInput.addEventListener('change', () => {
+      const file = els.avatarInput.files[0];
+      els.avatarInput.value = '';
+      if (file) uploadAvatar(file);
+    });
+    els.profileBack.addEventListener('click', () => openSheet(BACK_TARGETS[state.profileOrigin] || 'settings'));
+    els.profileWrite.addEventListener('click', () => {
+      const u = state.profileUser;
+      if (u && u.username) startChatWith(u.username);
+    });
+    els.tabGifts.addEventListener('click', () => setProfileTab('gifts'));
+    els.tabPosts.addEventListener('click', () => setProfileTab('posts'));
+    els.tabAction.addEventListener('click', () => {
+      if (state.profileTab === 'gifts') openSheet('collection');
+      else openSheet('archive');
+    });
+    els.collectionCreate.addEventListener('click', createCollection);
+    els.themeSeg.addEventListener('click', onThemeClick);
+    els.langSeg.addEventListener('click', onLangClick);
+    els.logoutBtn.addEventListener('click', logout);
+    els.profileForm.addEventListener('submit', saveProfile);
+    els.profileBio.addEventListener('click', (e) => {
+      const mention = e.target.closest('.mention');
+      if (!mention) return;
+      e.preventDefault();
+      openProfileByUsername(mention.dataset.mention);
     });
 
     els.listSearch.addEventListener('input', renderChatList);
     els.chatList.addEventListener('click', (e) => {
+      if (suppressChatClick) {
+        suppressChatClick = false;
+        return;
+      }
       const item = e.target.closest('.chat-item');
       if (item) openChat(Number(item.dataset.chatId));
     });
@@ -1605,6 +2177,33 @@
       const item = e.target.closest('.chat-item');
       if (item) openChat(Number(item.dataset.chatId));
     });
+    els.chatList.addEventListener('contextmenu', (e) => {
+      const item = e.target.closest('.chat-item');
+      if (!item) return;
+      e.preventDefault();
+      openChatContext(Number(item.dataset.chatId), e.clientX, e.clientY);
+    });
+    els.chatList.addEventListener('touchstart', (e) => {
+      const item = e.target.closest('.chat-item');
+      if (!item) return;
+      const touch = e.touches[0];
+      clearTimeout(chatPressTimer);
+      chatPressTimer = setTimeout(() => {
+        suppressChatClick = true;
+        setTimeout(() => { suppressChatClick = false; }, 600);
+        openChatContext(Number(item.dataset.chatId), touch.clientX, touch.clientY);
+      }, 450);
+    }, { passive: true });
+    ['touchend', 'touchmove', 'touchcancel'].forEach((name) => {
+      els.chatList.addEventListener(name, () => clearTimeout(chatPressTimer), { passive: true });
+    });
+    els.chatCtxHide.addEventListener('click', () => chatCtxAction('hide'));
+    els.chatCtxBlock.addEventListener('click', () => {
+      const chat = state.chats.find((c) => c.id === state.ctxChatId);
+      const blockedByMe = Boolean(chat && chat.blocked && chat.blocked.byMe);
+      chatCtxAction(blockedByMe ? 'unblock' : 'block');
+    });
+    els.chatCtxLeave.addEventListener('click', () => chatCtxAction('leave'));
     els.listStatus.addEventListener('click', () => location.reload());
 
     els.backBtn.addEventListener('click', closeChat);
@@ -1612,7 +2211,7 @@
       const chat = currentChat();
       if (!chat) return;
       if (chat.kind === 'group') openGroupInfo(chat.id);
-      else openProfile(chat.peer, false, null);
+      else openProfile(chat.peer, false, 'chat');
     });
     els.chatSearchBtn.addEventListener('click', () => {
       els.chatSearchInput.value = '';
@@ -1626,12 +2225,35 @@
       const hit = e.target.closest('[data-message-id]');
       if (!hit) return;
       closeSheet();
-      openAround(Number(hit.dataset.messageId));
+      scrollToMessage(Number(hit.dataset.messageId));
+    });
+    els.pinnedOpen.addEventListener('click', () => {
+      if (state.meta && state.meta.pinned) scrollToMessage(state.meta.pinned.id);
+    });
+    els.pinnedUnpin.addEventListener('click', async () => {
+      if (!state.currentChatId) return;
+      try {
+        await NC.api('DELETE', '/api/chats/' + state.currentChatId + '/pin');
+        refreshMeta();
+      } catch (err) {
+        toast(errorText(err));
+      }
+    });
+    els.replyClose.addEventListener('click', () => {
+      state.replyTo = null;
+      renderReplyBar();
     });
     els.toBottom.addEventListener('click', jumpToLatest);
 
     els.messages.addEventListener('scroll', onMessagesScroll, { passive: true });
     els.messages.addEventListener('click', (e) => {
+      const mention = e.target.closest('.mention');
+      if (mention) {
+        e.preventDefault();
+        return openProfileByUsername(mention.dataset.mention);
+      }
+      const quote = e.target.closest('.quote');
+      if (quote) return scrollToMessage(Number(quote.dataset.scroll));
       if (e.target.closest('.load-all')) return loadAll();
       const chip = e.target.closest('.reaction-chip');
       if (chip) return toggleReaction(Number(chip.dataset.messageId), chip.dataset.react);
@@ -1658,22 +2280,36 @@
     });
 
     els.ctxReactions.addEventListener('click', (e) => {
-      const btn = e.target.closest('.ctx-react');
+      const more = e.target.closest('[data-more]');
+      if (more) {
+        els.ctxMore.hidden = !els.ctxMore.hidden;
+        return;
+      }
+      const btn = e.target.closest('[data-emoji]');
       const msg = state.ctxMessage;
       if (!btn || !msg) return;
-      closeContextMenu();
+      closeMenus();
       toggleReaction(msg.id, btn.dataset.emoji);
     });
+    els.ctxMore.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-emoji]');
+      const msg = state.ctxMessage;
+      if (!btn || !msg) return;
+      closeMenus();
+      toggleReaction(msg.id, btn.dataset.emoji);
+    });
+    els.ctxReply.addEventListener('click', startReply);
     els.ctxCopy.addEventListener('click', () => {
       const msg = state.ctxMessage;
-      closeContextMenu();
+      closeMenus();
       if (msg && msg.text) copyText(msg.text);
     });
     els.ctxForward.addEventListener('click', () => {
       const msg = state.ctxMessage;
-      closeContextMenu();
+      closeMenus();
       if (msg) openForward(msg.id);
     });
+    els.ctxPin.addEventListener('click', togglePinFromMenu);
     els.ctxDeleteMe.addEventListener('click', () => deleteFromMenu('me'));
     els.ctxDeleteAll.addEventListener('click', () => deleteFromMenu('all'));
 
@@ -1707,28 +2343,15 @@
       if (!document.hidden && state.currentChatId) markRead(state.currentChatId);
     });
 
-    els.profileCard.addEventListener('click', (e) => {
-      if (e.target.closest('[data-photo]')) els.avatarInput.click();
-      else if (e.target.closest('.profile-card-main')) openProfile(state.me, true, 'settings');
-    });
-    els.avatarEdit.addEventListener('click', () => els.avatarInput.click());
-    els.avatarInput.addEventListener('change', () => {
-      const file = els.avatarInput.files[0];
-      els.avatarInput.value = '';
-      if (file) uploadAvatar(file);
-    });
-    els.profileBack.addEventListener('click', () => openSheet(state.profileOrigin || 'settings'));
-    els.themeSeg.addEventListener('click', onThemeClick);
-    els.langSeg.addEventListener('click', onLangClick);
-    els.logoutBtn.addEventListener('click', logout);
-    els.profileForm.addEventListener('submit', saveProfile);
-
     els.userSearch.addEventListener('input', searchUsers);
+    // Нажатие на найденного человека открывает его профиль с кнопкой «Написать»
     els.userResults.addEventListener('click', (e) => {
       const groupBtn = e.target.closest('[data-group-id]');
       if (groupBtn) return openGroupPreview(state.groupResults.get(Number(groupBtn.dataset.groupId)));
       const userBtn = e.target.closest('[data-username]');
-      if (userBtn) startChatWith(userBtn.dataset.username);
+      if (!userBtn) return;
+      const user = state.userResultMap.get(userBtn.dataset.username);
+      if (user) openProfile(user, false, 'newChat');
     });
 
     els.groupUsername.addEventListener('input', checkGroupUsername);
@@ -1853,6 +2476,9 @@
     bindEvents();
     showSkeleton();
     autoGrow();
+    setInterval(() => {
+      if (state.currentChatId) refreshMeta();
+    }, 30000);
     boot();
   }
 

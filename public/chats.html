@@ -2,9 +2,6 @@
 <html lang="ru">
 
 <head>
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/icons/icon-192.png">
-  <meta name="mobile-web-app-capable" content="yes">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#1c1c1e">
@@ -18,6 +15,10 @@
     })();
   </script>
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
 </head>
 
 <body class="page-app">
@@ -57,10 +58,32 @@
           aria-label="Search"></button>
       </header>
 
+      <div id="pinnedBar" class="pinned-bar" hidden>
+        <button id="pinnedOpen" class="pinned-open" type="button">
+          <span class="pinned-line"></span>
+          <span class="pinned-meta">
+            <span class="pinned-title" data-x="pinned">Закреплённое сообщение</span>
+            <span id="pinnedText" class="pinned-text"></span>
+          </span>
+        </button>
+        <button id="pinnedUnpin" class="icon-btn pinned-unpin" type="button" data-icon="x" data-icon-size="16"
+          aria-label="Unpin"></button>
+      </div>
+
       <div id="messages" class="messages"></div>
 
       <button id="toBottom" class="to-bottom" type="button" data-icon="chevron" data-icon-size="20" aria-label="Down"
         hidden></button>
+
+      <div id="replyBar" class="reply-bar" hidden>
+        <span class="reply-line"></span>
+        <div class="reply-meta">
+          <span id="replyName" class="reply-name"></span>
+          <span id="replyText" class="reply-text"></span>
+        </div>
+        <button id="replyClose" class="icon-btn reply-close" type="button" data-icon="x" data-icon-size="16"
+          aria-label="Close"></button>
+      </div>
 
       <form id="composer" class="composer">
         <button id="attachBtn" class="attach-btn" type="button" data-icon="paperclip" data-icon-size="20"
@@ -72,7 +95,7 @@
       </form>
       <input id="fileInput" type="file" hidden>
 
-      <p id="readonlyNote" class="readonly-note" data-i18n="readonlyChat" hidden></p>
+      <p id="readonlyNote" class="readonly-note" hidden></p>
     </section>
 
     <div id="desktopEmpty" class="empty desktop-empty">
@@ -83,15 +106,29 @@
 
   <div id="ctxMenu" class="ctx-menu" role="menu">
     <div id="ctxReactions" class="ctx-reactions"></div>
+    <div id="ctxMore" class="ctx-more" hidden></div>
+    <button id="ctxReply" class="ctx-item" type="button"><span data-xicon="reply" data-icon-size="18"></span><span
+        data-x="reply">Ответить</span></button>
     <button id="ctxCopy" class="ctx-item" type="button"><span data-icon="copy" data-icon-size="18"></span><span
         data-x="copy">Копировать</span></button>
     <button id="ctxForward" class="ctx-item" type="button"><span data-icon="forward" data-icon-size="18"></span><span
         data-x="forward">Переслать</span></button>
+    <button id="ctxPin" class="ctx-item" type="button"><span data-xicon="pin" data-icon-size="18"></span><span
+        id="ctxPinLabel"></span></button>
     <div class="ctx-sep"></div>
     <button id="ctxDeleteMe" class="ctx-item danger" type="button"><span data-icon="trash"
         data-icon-size="18"></span><span data-x="deleteMe">Удалить у меня</span></button>
     <button id="ctxDeleteAll" class="ctx-item danger" type="button"><span data-icon="trash"
         data-icon-size="18"></span><span data-x="deleteAll">Удалить у всех</span></button>
+  </div>
+
+  <div id="chatCtxMenu" class="ctx-menu" role="menu">
+    <button id="chatCtxHide" class="ctx-item danger" type="button"><span data-icon="trash"
+        data-icon-size="18"></span><span data-x="deleteChat">Удалить чат</span></button>
+    <button id="chatCtxBlock" class="ctx-item danger" type="button"><span data-xicon="ban"
+        data-icon-size="18"></span><span id="chatCtxBlockLabel"></span></button>
+    <button id="chatCtxLeave" class="ctx-item danger" type="button"><span data-xicon="leave"
+        data-icon-size="18"></span><span data-x="leaveGroup">Покинуть группу</span></button>
   </div>
 
   <div id="backdrop" class="backdrop"></div>
@@ -106,23 +143,118 @@
     <div class="sheet-body">
       <div id="profileCard" class="profile-card"></div>
 
-      <p class="section-label" data-i18n="appearance">Внешний вид</p>
+      <div class="set-group">
+        <button class="set-row" type="button" data-go="account">
+          <span class="set-icon" style="background:#0a84ff" data-xicon="user" data-icon-size="17"></span>
+          <span class="set-label" data-x="account">Аккаунт</span>
+          <span class="set-chev" data-icon="chevron" data-icon-size="16"></span>
+        </button>
+        <button class="set-row" type="button" data-go="notifications">
+          <span class="set-icon" style="background:#ff3b30" data-xicon="bell" data-icon-size="17"></span>
+          <span class="set-label" data-x="notifications">Уведомления</span>
+          <span class="set-chev" data-icon="chevron" data-icon-size="16"></span>
+        </button>
+        <button class="set-row" type="button" data-go="privacy">
+          <span class="set-icon" style="background:#34c759" data-xicon="lock" data-icon-size="17"></span>
+          <span class="set-label" data-x="privacy">Конфиденциальность</span>
+          <span class="set-chev" data-icon="chevron" data-icon-size="16"></span>
+        </button>
+        <button class="set-row" type="button" data-go="data">
+          <span class="set-icon" style="background:#5e5ce6" data-xicon="pie" data-icon-size="17"></span>
+          <span class="set-label" data-x="dataMemory">Данные и память</span>
+          <span class="set-chev" data-icon="chevron" data-icon-size="16"></span>
+        </button>
+      </div>
+
+      <div class="set-group">
+        <button class="set-row" type="button" data-go="appearance">
+          <span class="set-icon" style="background:#ff9f0a" data-icon="sun" data-icon-size="17"></span>
+          <span class="set-label" data-i18n="appearance">Внешний вид</span>
+          <span class="set-chev" data-icon="chevron" data-icon-size="16"></span>
+        </button>
+        <button class="set-row" type="button" data-go="language">
+          <span class="set-icon" style="background:#bf5af2" data-xicon="globe" data-icon-size="17"></span>
+          <span class="set-label" data-i18n="language">Язык</span>
+          <span class="set-chev" data-icon="chevron" data-icon-size="16"></span>
+        </button>
+      </div>
+
+      <div class="set-group">
+        <button class="set-row" type="button" data-go="nova">
+          <span class="set-icon" style="background:#7d5cff" data-xicon="star" data-icon-size="17"></span>
+          <span class="set-label" data-x="nova">Nova+</span>
+          <span class="set-chev" data-icon="chevron" data-icon-size="16"></span>
+        </button>
+      </div>
+
+      <button id="logoutBtn" class="btn btn-danger" type="button" data-i18n="logout">Выйти</button>
+      <p class="version" data-i18n="version">NovaChat · версия 0.1</p>
+    </div>
+  </section>
+
+  <section id="appearanceSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <button type="button" class="icon-btn sheet-back" data-back="settings" data-icon="chevron" data-icon-size="24"
+        aria-label="Back"></button>
+      <h2 class="sheet-title" data-i18n="appearance">Внешний вид</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
       <div id="themeSeg" class="segmented" style="--count: 3;">
         <span class="seg-thumb"></span>
         <button type="button" class="seg" data-value="system" data-i18n="themeSystem">Системная</button>
         <button type="button" class="seg" data-value="light" data-i18n="themeLight">Светлая</button>
         <button type="button" class="seg" data-value="dark" data-i18n="themeDark">Тёмная</button>
       </div>
+    </div>
+  </section>
 
-      <p class="section-label" data-i18n="language">Язык</p>
+  <section id="languageSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <button type="button" class="icon-btn sheet-back" data-back="settings" data-icon="chevron" data-icon-size="24"
+        aria-label="Back"></button>
+      <h2 class="sheet-title" data-i18n="language">Язык</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
       <div id="langSeg" class="segmented">
         <span class="seg-thumb"></span>
         <button type="button" class="seg" data-value="ru">Русский</button>
         <button type="button" class="seg" data-value="en">English</button>
       </div>
+    </div>
+  </section>
 
-      <button id="logoutBtn" class="btn btn-danger" type="button" data-i18n="logout">Выйти</button>
-      <p class="version" data-i18n="version">NovaChat · версия 0.1</p>
+  <section id="novaSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <button type="button" class="icon-btn sheet-back" data-back="settings" data-icon="chevron" data-icon-size="24"
+        aria-label="Back"></button>
+      <h2 class="sheet-title" data-x="nova">Nova+</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <div class="nova-hero">
+        <div class="nova-star" data-xicon="star" data-icon-size="36"></div>
+        <p class="nova-note" data-x="novaText">Nova+ — подписка с дополнительными возможностями. Пока это заглушка:
+          оформить её нельзя.</p>
+      </div>
+      <button id="novaBtn" class="btn btn-primary" type="button" disabled data-x="novaSoon">Скоро</button>
+    </div>
+  </section>
+
+  <section id="stubSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <button type="button" class="icon-btn sheet-back" data-back="settings" data-icon="chevron" data-icon-size="24"
+        aria-label="Back"></button>
+      <h2 id="stubTitle" class="sheet-title"></h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <p id="stubText" class="nova-note"></p>
     </div>
   </section>
 
@@ -146,6 +278,10 @@
         <p id="profileBadge" class="profile-badge"></p>
       </div>
 
+      <div id="profileActions" class="profile-actions" hidden>
+        <button id="profileWrite" class="btn btn-primary" type="button" data-x="write">Написать</button>
+      </div>
+
       <p id="profileBio" class="profile-bio"></p>
 
       <form id="profileForm" class="profile-form" hidden>
@@ -155,8 +291,53 @@
         <textarea id="editBio" class="field textarea" rows="3" maxlength="200"></textarea>
         <button class="btn btn-primary" type="submit" data-i18n="save">Сохранить</button>
       </form>
+
+      <div class="ptabs-row">
+        <div class="ptabs">
+          <button id="tabGifts" class="ptab active" type="button" data-x="tabGifts">Подарки</button>
+          <button id="tabPosts" class="ptab" type="button" data-x="tabPosts">Публикации</button>
+        </div>
+        <button id="tabAction" class="ptab-action" type="button" hidden></button>
+      </div>
+
+      <div id="panelGifts" class="ptab-panel">
+        <ul id="collectionList" class="collection-list"></ul>
+        <p id="giftsEmpty" class="hint-center" data-x="giftsEmpty">Подарков пока нет</p>
+      </div>
+      <div id="panelPosts" class="ptab-panel" hidden>
+        <p class="hint-center" data-x="postsEmpty">Публикаций пока нет</p>
+      </div>
     </div>
     <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+  </section>
+
+  <section id="collectionSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <button type="button" class="icon-btn sheet-back" data-back="profile" data-icon="chevron" data-icon-size="24"
+        aria-label="Back"></button>
+      <h2 class="sheet-title" data-x="newCollection">Новая коллекция</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <label class="label" for="collectionTitle" data-x="collectionName">Название</label>
+      <input id="collectionTitle" class="field" type="text" maxlength="32">
+      <p class="hint-center" data-x="collectionHint">Пока коллекция пустая. Подарки появятся в следующем обновлении.</p>
+      <button id="collectionCreate" class="btn btn-primary" type="button" data-x="create">Создать</button>
+    </div>
+  </section>
+
+  <section id="archiveSheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <button type="button" class="icon-btn sheet-back" data-back="profile" data-icon="chevron" data-icon-size="24"
+        aria-label="Back"></button>
+      <h2 class="sheet-title" data-x="archive">Архив публикаций</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <p class="nova-note" data-x="archiveText">Здесь будут публикации, которые вы скроете. Пока публикаций нет.</p>
+    </div>
   </section>
 
   <section id="newChatSheet" class="sheet" role="dialog" aria-modal="true">
@@ -167,7 +348,7 @@
         aria-label="Close"></button>
     </header>
     <div class="sheet-body">
-      <button id="createGroupBtn" class="btn btn-soft" type="button" data-x="newGroup">Создать группу</button>
+      <button id="createGroupBtn" class="btn btn-soft" type="button" data-x="newGroup">Новая группа</button>
       <input id="userSearch" class="field" type="search" autocomplete="off" autocapitalize="off" spellcheck="false"
         data-i18n-placeholder="usernamePlaceholder" placeholder="Юзернейм">
       <ul id="userResults" class="user-list"></ul>
@@ -256,10 +437,33 @@
 
   <div id="toast" class="toast" role="status"></div>
 
+  <section id="privacySheet" class="sheet" role="dialog" aria-modal="true">
+    <header class="sheet-bar">
+      <button type="button" class="icon-btn sheet-back" data-back="settings" data-icon="chevron" data-icon-size="24"
+        aria-label="Back"></button>
+      <h2 class="sheet-title" data-x="privacy">Конфиденциальность</h2>
+      <button type="button" class="icon-btn sheet-close" data-close data-icon="x" data-icon-size="20"
+        aria-label="Close"></button>
+    </header>
+    <div class="sheet-body">
+      <div class="set-group">
+        <label class="set-row set-switch">
+          <span class="set-label" data-x="showLastSeen">Время захода</span>
+          <span class="switch">
+            <input id="lastSeenToggle" type="checkbox">
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </span>
+        </label>
+      </div>
+      <p class="nova-note" data-x="lastSeenHint">Если выключить, собеседники увидят «был(а) недавно» вместо точного
+        времени.</p>
+    </div>
+  </section>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="common.js"></script>
-  <script src="app.js"></script>
   <script src="pwa.js"></script>
+  <script src="app.js"></script>
 </body>
 
 </html>
