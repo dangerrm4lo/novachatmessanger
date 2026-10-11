@@ -43,7 +43,7 @@ function frozenBody(user) {
 }
 
 router.get('/check-username', wrap(async (req, res) => {
-  const username = String(req.query.username || '').trim().toLowerCase();
+  const username = String(req.query.username || '').trim().replace(/^@+/, '').toLowerCase();
   if (!USERNAME_RE.test(username)) {
     return res.json({ available: false, reason: 'invalid' });
   }
@@ -58,7 +58,7 @@ router.post('/register', wrap(async (req, res) => {
   }
 
   const body = req.body || {};
-  const username = String(body.username || '').trim().toLowerCase();
+  const username = String(body.username || '').trim().replace(/^@+/, '').toLowerCase();
   const displayName = String(body.displayName || '').trim();
   const password = String(body.password || '');
 
@@ -89,7 +89,7 @@ router.post('/register', wrap(async (req, res) => {
 
 router.post('/login', wrap(async (req, res) => {
   const body = req.body || {};
-  const username = String(body.username || '').trim().toLowerCase();
+  const username = String(body.username || '').trim().replace(/^@+/, '').toLowerCase();
   const password = String(body.password || '');
 
   const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username]);

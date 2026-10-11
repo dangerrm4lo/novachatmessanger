@@ -15,6 +15,7 @@
   const MAX_FILE = 10 * 1024 * 1024;
   const MAX_PHOTO = 2 * 1024 * 1024;
   const IMAGE_RE = /^image\/(png|jpeg|gif|webp)$/;
+  const VIDEO_RE = /^video\/(mp4|webm|quicktime)$/;
   const USERNAME_RE = /^[a-z0-9_]{5,32}$/;
   const NOTICE_KEY = 'novachat_notice';
   const PAGE = 50;
@@ -639,12 +640,12 @@
       'style="animation-delay:' + delay + 'ms">' +
       NC.avatarHtml(p, 'avatar-md') +
       '<div class="chat-meta">' +
-        '<div class="chat-row"><span class="chat-name">' + nameHtml + '</span>' +
-          '<span class="chat-time">' + NC.esc(time) + '</span></div>' +
-        '<div class="chat-row">' + tick +
-          '<span class="chat-preview">' + NC.esc(prefix + preview) + '</span>' + badge + '</div>' +
+      '<div class="chat-row"><span class="chat-name">' + nameHtml + '</span>' +
+      '<span class="chat-time">' + NC.esc(time) + '</span></div>' +
+      '<div class="chat-row">' + tick +
+      '<span class="chat-preview">' + NC.esc(prefix + preview) + '</span>' + badge + '</div>' +
       '</div>' +
-    '</li>';
+      '</li>';
   }
 
   function renderChatList() {
@@ -928,6 +929,9 @@
     if (IMAGE_RE.test(f.mime)) {
       return '<img class="msg-img" alt="" data-file-id="' + f.id + '">';
     }
+    if (VIDEO_RE.test(f.mime)) {
+      return '<video class="msg-video" controls playsinline preload="metadata" data-file-id="' + f.id + '"></video>';
+    }
     return '<button class="file-card" type="button" data-file-id="' + f.id + '" data-name="' + NC.esc(f.name) + '">' +
       '<span class="file-card-icon">' + NC.icon('file', 20) + '</span>' +
       '<span class="file-card-meta"><span class="file-card-name">' + NC.esc(f.name) + '</span>' +
@@ -979,11 +983,11 @@
 
     return '<div class="' + classes.join(' ') + '" data-id="' + m.id + '"><div class="msg-col">' +
       '<div class="bubble">' + body +
-        '<span class="msg-meta"><span class="msg-time">' + NC.formatTime(m.createdAt) + '</span>' +
-        tickHtml(m) + '</span>' +
+      '<span class="msg-meta"><span class="msg-time">' + NC.formatTime(m.createdAt) + '</span>' +
+      tickHtml(m) + '</span>' +
       '</div>' +
       reactionsHtml(m) +
-    '</div></div>';
+      '</div></div>';
   }
 
   function renderMessages() {
@@ -1190,10 +1194,10 @@
   }
 
   function hydrateMedia(root) {
-    root.querySelectorAll('img.msg-img[data-file-id]:not([src])').forEach((img) => {
-      fileUrl(Number(img.dataset.fileId))
-        .then((url) => { img.src = url; })
-        .catch(() => {});
+    root.querySelectorAll('img.msg-img[data-file-id]:not([src]), video.msg-video[data-file-id]:not([src])').forEach((el) => {
+      fileUrl(Number(el.dataset.fileId))
+        .then((url) => { el.src = url; })
+        .catch(() => { });
     });
   }
 
@@ -1540,10 +1544,10 @@
       '<button class="avatar-edit" type="button" data-photo="1" aria-label="' + NC.esc(X('changePhoto')) + '">' +
       NC.icon('camera', 15) + '</button></span>' +
       '<button class="profile-card-main" type="button">' +
-        '<span class="profile-card-text"><span class="profile-card-name">' + NC.esc(me.displayName) +
-        (me.isVerified ? NC.verifiedHtml() : '') + '</span>' +
-        '<span class="profile-card-sub">@' + NC.esc(me.username) + '</span></span>' +
-        '<span class="chev">' + NC.icon('chevron', 18) + '</span>' +
+      '<span class="profile-card-text"><span class="profile-card-name">' + NC.esc(me.displayName) +
+      (me.isVerified ? NC.verifiedHtml() : '') + '</span>' +
+      '<span class="profile-card-sub">@' + NC.esc(me.username) + '</span></span>' +
+      '<span class="chev">' + NC.icon('chevron', 18) + '</span>' +
       '</button>';
     NC.setSegValue(els.themeSeg, NC.getThemePref());
     NC.setSegValue(els.langSeg, NC.getLang());
@@ -1646,11 +1650,11 @@
   function renderCollections(list) {
     els.collectionList.innerHTML = list.map((c) =>
       '<li class="collection-item">' +
-        '<span class="collection-icon">' + xIcon('gift', 20) + '</span>' +
-        '<span class="collection-meta">' +
-          '<span class="collection-name">' + NC.esc(c.title) + '</span>' +
-          '<span class="collection-sub">' + NC.esc(X('collectionEmpty')) + '</span>' +
-        '</span>' +
+      '<span class="collection-icon">' + xIcon('gift', 20) + '</span>' +
+      '<span class="collection-meta">' +
+      '<span class="collection-name">' + NC.esc(c.title) + '</span>' +
+      '<span class="collection-sub">' + NC.esc(X('collectionEmpty')) + '</span>' +
+      '</span>' +
       '</li>'
     ).join('');
     els.giftsEmpty.hidden = list.length > 0;
@@ -1702,10 +1706,21 @@
     }
   }
 
+  // Ссылка @name: сначала ищем пользователя, если его нет, ищем группу с этим юзернеймом
   function openProfileByUsername(username) {
     NC.api('GET', '/api/users/' + encodeURIComponent(username))
       .then((data) => openProfile(data.user, false, null))
-      .catch((err) => toast(errorText(err)));
+      .catch((err) => {
+        if (!(err instanceof NC.ApiError) || err.status !== 404) {
+          toast(errorText(err));
+          return;
+        }
+        NC.api('GET', '/api/chats/groups/by-username/' + encodeURIComponent(username))
+          .then((data) => openGroupPreview(data.group))
+          .catch(() => {
+            toast(NC.getLang() === 'en' ? 'User or group not found' : 'Пользователь или группа не найдены');
+          });
+      });
   }
 
   function ensureReportUi() {
@@ -1717,10 +1732,10 @@
     wrap.innerHTML =
       '<button id="reportToggle" class="report-toggle" type="button" data-x="report"></button>' +
       '<div id="reportBox" class="reveal">' +
-        '<div class="reveal-inner report-inner">' +
-          '<textarea id="reportText" class="field textarea" rows="3" maxlength="500" data-x-placeholder="reportPlaceholder"></textarea>' +
-          '<button id="reportSend" class="btn btn-danger" type="button" data-x="reportSend"></button>' +
-        '</div>' +
+      '<div class="reveal-inner report-inner">' +
+      '<textarea id="reportText" class="field textarea" rows="3" maxlength="500" data-x-placeholder="reportPlaceholder"></textarea>' +
+      '<button id="reportSend" class="btn btn-danger" type="button" data-x="reportSend"></button>' +
+      '</div>' +
       '</div>';
     body.appendChild(wrap);
 
@@ -1961,12 +1976,12 @@
     return '<li class="member-row" data-id="' + m.id + '">' +
       NC.avatarHtml(m, 'avatar-md') +
       '<div class="chat-meta">' +
-        '<div class="chat-name"><span class="truncate">' + NC.esc(m.displayName) + '</span>' +
-        (m.isVerified ? NC.verifiedHtml() : '') + roleTag + selfTag + '</div>' +
-        '<div class="chat-preview">@' + NC.esc(m.username) + '</div>' +
-        (actions ? '<div class="row-actions">' + actions + '</div>' : '') +
+      '<div class="chat-name"><span class="truncate">' + NC.esc(m.displayName) + '</span>' +
+      (m.isVerified ? NC.verifiedHtml() : '') + roleTag + selfTag + '</div>' +
+      '<div class="chat-preview">@' + NC.esc(m.username) + '</div>' +
+      (actions ? '<div class="row-actions">' + actions + '</div>' : '') +
       '</div>' +
-    '</li>';
+      '</li>';
   }
 
   function renderGroupInfo(g) {

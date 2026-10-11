@@ -22,6 +22,11 @@
   let busy = false;
   let checkSeq = 0;
 
+  // Юзернейм без @, пробелов и заглавных букв: @DangerRM4lo становится dangerrm4lo
+  function cleanUsername(value) {
+    return String(value || '').trim().replace(/^@+/, '').replace(/\s+/g, '').toLowerCase();
+  }
+
   function setHint(text, state) {
     hint.textContent = text;
     hint.className = 'hint' + (state ? ' ' + state : '');
@@ -51,7 +56,7 @@
   }
 
   function checkUsername() {
-    const value = usernameInput.value.trim().toLowerCase();
+    const value = cleanUsername(usernameInput.value);
     const seq = ++checkSeq;
     if (mode !== 'register' || !value) {
       setHint('');
@@ -113,6 +118,8 @@
   });
 
   usernameInput.addEventListener('input', () => {
+    const cleaned = cleanUsername(usernameInput.value);
+    if (cleaned !== usernameInput.value) usernameInput.value = cleaned;
     showError('');
     debouncedCheck();
   });
@@ -132,13 +139,15 @@
     setMode(mode);
   });
   NC.on('theme', renderThemeIcon);
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (busy) return;
     showError('');
 
     const isRegister = mode === 'register';
-    const username = usernameInput.value.trim().toLowerCase();
+    const username = cleanUsername(usernameInput.value);
+    usernameInput.value = username;
     const password = passwordInput.value;
     const displayName = displayNameInput.value.trim();
 
@@ -154,7 +163,6 @@
         : await NC.api('POST', '/api/auth/login', { username: username, password: password }, { keepSession: true });
       NC.setToken(data.token);
       if (isRegister) {
-        // Тема и язык, выбранные до регистрации, сохраняются в профиль до первого приветствия
         await NC.api('PATCH', '/api/users/me', { theme: NC.getThemePref(), language: NC.getLang() }).catch(() => { });
       }
       NC.leaveTo('chats.html');

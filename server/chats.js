@@ -525,6 +525,21 @@ router.post('/groups', wrap(async (req, res) => {
   }
 }));
 
+// Группа по юзернейму: ссылка @группа открывает группу
+router.get('/groups/by-username/:username', wrap(async (req, res) => {
+  const username = String(req.params.username || '').trim().toLowerCase();
+  if (!GROUP_USERNAME_RE.test(username)) return notFound(res, 'Группа не найдена');
+  const { rows } = await pool.query(
+    "SELECT c.id, c.title, c.username, c.description, " +
+    "(SELECT COUNT(*) FROM chat_members x WHERE x.chat_id = c.id)::int AS member_count, " +
+    "EXISTS (SELECT 1 FROM chat_members m WHERE m.chat_id = c.id AND m.user_id = $2) AS is_member " +
+    "FROM chats c WHERE c.kind = 'group' AND c.username = $1",
+    [username, req.userId]
+  );
+  if (!rows[0]) return notFound(res, 'Группа не найдена');
+  res.json({ group: mapGroupCard(rows[0]) });
+}));
+
 router.get('/:id', wrap(async (req, res) => {
   const chatId = parseId(req.params.id);
   const me = await getMembership(chatId, req.userId);
